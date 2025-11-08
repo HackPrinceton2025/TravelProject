@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../lib/useAuth";
 
 const randomCode = () =>
   `grp-${Math.random().toString(36).slice(2, 6)}${Math.random()
@@ -10,11 +11,20 @@ const randomCode = () =>
 
 export default function GroupsLanding() {
   const router = useRouter();
+  const { user, loading } = useAuth(); // Auth guard - redirects to / if not logged in
   const [creating, setCreating] = useState(false);
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [joinStatus, setJoinStatus] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50">
+        <div className="text-blue-600 text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   const createGroup = () => {
     if (creating) return;

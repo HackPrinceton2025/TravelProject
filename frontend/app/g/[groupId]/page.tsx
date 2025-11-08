@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { useAuth } from "../../lib/useAuth";
 
 const starterMessages = [
   {
@@ -42,9 +43,18 @@ const starterMessages = [
 export default function GroupPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params?.groupId ?? "group-001";
+  const { user, loading } = useAuth(); // Auth guard - redirects to / if not logged in
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState(starterMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-orange-50">
+        <div className="text-blue-600 text-xl">Loading...</div>
+      </div>
+    );
+  }
 
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
