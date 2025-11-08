@@ -1,42 +1,14 @@
-from typing import Dict, List, Optional
-from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from typing import Any, Optional
 
-
-class Group(BaseModel):
-    id: str
-    name: str
-
-
+# Schema for creating a new group
 class GroupCreate(BaseModel):
-    name: str = Field(..., min_length=1)
+    name: str
+    created_by: Optional[str] = None  # later we’ll connect to users
 
-
-class Message(BaseModel):
-    id: str
-    group_id: str
-    sender: str
-    content: str
-    created_at: Optional[datetime] = None
-
-
+# Schema for sending a message
 class MessageCreate(BaseModel):
     group_id: str
-    sender: str
-    content: str
-
-
-class Poll(BaseModel):
-    id: str
-    group_id: str
-    question: str
-    options: List[str]
-    votes: Dict[str, int] = {}
-
-
-class PollCreate(BaseModel):
-    group_id: str
-    question: str
-    options: List[str]
-
-
+    sender_id: str
+    kind: Optional[str] = "text"
+    body: Any  # can hold {"text": "hello"} or more complex AI content
