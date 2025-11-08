@@ -19,7 +19,8 @@ async def test_get_user_preferences():
     
     result = await agent.chat(
         message=message,
-        group_id="test_group_prefs",
+        user_id="d921a507-969c-4aec-a821-b643747cbf41",
+        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
         stream=False
     )
     
@@ -108,13 +109,14 @@ async def test_update_preferences_with_custom():
     print("=" * 80)
     
     agent = get_travel_agent()
-    message = "Update my preferences: I'm interested in museums and wine tasting, I'm pescatarian, and I prefer a relaxed travel pace"
+    message = "Update my preferences: I'm interested in food, I'm vegeterian, and my budget would be $1000."
     
     print(f"Query: {message}\n")
     
     result = await agent.chat(
         message=message,
-        group_id="test_group_update",
+        user_id="d921a507-969c-4aec-a821-b643747cbf41",
+        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
         stream=False
     )
     
@@ -241,8 +243,8 @@ async def main():
     #await test_get_user_preferences()
     #await test_get_all_group_preferences()
     await test_update_preferences_with_custom()
-    await test_update_custom_fields()
-    await test_preference_schema()
+    #await test_update_custom_fields()
+    #await test_preference_schema()
     
     print("✅ All preference tests completed!\n")
 

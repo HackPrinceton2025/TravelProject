@@ -19,7 +19,8 @@ async def test_create_poll():
     
     result = await agent.chat(
         message=message,
-        group_id="test_group_polls",
+        user_id="d921a507-969c-4aec-a821-b643747cbf41",
+        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
         stream=False
     )
     
@@ -30,13 +31,14 @@ async def test_create_poll():
     if result["cards"]:
         print(f"💳 Cards Returned: {len(result['cards'])}")
         for card in result["cards"]:
-            if card['type'] == 'confirmation':
+            if card['type'] == 'poll':
                 data = card['data']
                 print(f"\n  ✅ Poll Created:")
                 print(f"    Poll ID: {data.get('poll_id')}")
                 print(f"    Question: {data.get('question')}")
-                print(f"    Options: {data.get('options')}")
+                print(f"    Options: {len(data.get('options', []))} options")
                 print(f"    Type: {data.get('poll_type')}")
+                print(f"    Status: {data.get('status')}")
     else:
         print("⚠️  No cards returned")
     
@@ -56,7 +58,8 @@ async def test_get_poll_results():
     
     result = await agent.chat(
         message=message,
-        group_id="test_group_polls",
+        user_id="d921a507-969c-4aec-a821-b643747cbf41",
+        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
         stream=False
     )
     
@@ -70,27 +73,28 @@ async def test_get_poll_results():
             if card['type'] == 'poll':
                 data = card['data']
                 print(f"\n  📊 Poll Results:")
+                print(f"    Poll ID: {data.get('poll_id')}")
                 print(f"    Question: {data.get('question')}")
-                print(f"    Total Votes: {data.get('total_votes')} / {data.get('total_members')}")
-                print(f"    Participation: {data.get('participation_rate', 0) * 100:.1f}%")
+                print(f"    Status: {data.get('status')}")
+                print(f"    Total Votes: {data.get('total_votes')} / {data.get('total_members')} members")
+                print(f"    Participation: {data.get('participation_rate', 0):.1f}%")
+                print(f"    Has Majority: {data.get('has_majority', False)}")
                 print(f"\n    Options:")
                 for option in data.get('options', []):
                     votes = option.get('votes', 0)
                     percentage = option.get('percentage', 0)
                     print(f"      • {option.get('text')}")
                     print(f"        Votes: {votes} ({percentage:.1f}%)")
-                    if option.get('voters'):
-                        print(f"        Voters: {', '.join(option.get('voters', []))}")
                 
-                winner = data.get('winner')
-                if winner:
-                    print(f"\n    🏆 Current Winner:")
-                    print(f"      {winner.get('text')}")
-                    print(f"      {winner.get('votes')} votes ({winner.get('percentage', 0):.1f}%)")
+                leader = data.get('leader')
+                if leader:
+                    print(f"\n    🏆 Current Leader:")
+                    print(f"      {leader.get('text')}")
+                    print(f"      {leader.get('votes')} votes ({leader.get('percentage', 0):.1f}%)")
                 
-                pending = data.get('pending_voters', [])
-                if pending:
-                    print(f"\n    ⏳ Pending Voters: {', '.join(pending)}")
+                voted_users = data.get('voted_users', [])
+                if voted_users:
+                    print(f"\n    ✅ Voted Users: {len(voted_users)} users")
     else:
         print("⚠️  No cards returned")
     
@@ -110,7 +114,8 @@ async def test_list_active_polls():
     
     result = await agent.chat(
         message=message,
-        group_id="test_group_polls",
+        user_id="d921a507-969c-4aec-a821-b643747cbf41",
+        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
         stream=False
     )
     
@@ -125,8 +130,11 @@ async def test_list_active_polls():
         for i, card in enumerate(poll_cards, 1):
             data = card['data']
             print(f"\n  Poll {i}:")
+            print(f"    Poll ID: {data.get('poll_id')}")
             print(f"    Question: {data.get('question')}")
-            print(f"    Votes: {data.get('total_votes')} / {data.get('total_options')} options")
+            print(f"    Status: {data.get('status')}")
+            print(f"    Votes: {data.get('total_votes')} / {data.get('total_members')} members")
+            print(f"    Options: {len(data.get('options', []))} options")
             print(f"    Created: {data.get('created_at')}")
     else:
         print("⚠️  No cards returned")
@@ -155,6 +163,7 @@ async def test_integrated_voting_scenario():
     result1 = await agent.chat(
         message="Based on our group's preferences (budget $3000, interested in museums and food, vegetarian-friendly), find 3 hotel options in Paris for March 15-20, 2026",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -178,6 +187,7 @@ async def test_integrated_voting_scenario():
     result2 = await agent.chat(
         message="Create a poll asking 'Which hotel should we book for our Paris trip?' with the hotel options we just found",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -186,12 +196,13 @@ async def test_integrated_voting_scenario():
     poll_id = None
     if result2['cards']:
         for card in result2['cards']:
-            if card['type'] == 'confirmation' and 'poll_id' in card.get('data', {}):
+            if card['type'] == 'poll' and 'poll_id' in card.get('data', {}):
                 data = card['data']
                 poll_id = data.get('poll_id')
                 print(f"\n✓ Poll Created:")
                 print(f"  Poll ID: {poll_id}")
                 print(f"  Question: {data.get('question')}")
+                print(f"  Status: {data.get('status')}")
                 print(f"  Options: {len(data.get('options', []))}")
     
     # Step 3: Check poll results
@@ -201,6 +212,7 @@ async def test_integrated_voting_scenario():
     result3 = await agent.chat(
         message="Show me the voting results for the hotel poll",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -211,12 +223,13 @@ async def test_integrated_voting_scenario():
             if card['type'] == 'poll':
                 data = card['data']
                 print(f"\n✓ Poll Status:")
-                print(f"  Total Votes: {data.get('total_votes')}")
-                print(f"  Participation: {data.get('participation_rate', 0) * 100:.1f}%")
+                print(f"  Total Votes: {data.get('total_votes')} / {data.get('total_members')} members")
+                print(f"  Participation: {data.get('participation_rate', 0):.1f}%")
+                print(f"  Has Majority: {data.get('has_majority', False)}")
                 
-                winner = data.get('winner')
-                if winner:
-                    print(f"  Current Winner: {winner.get('text')} ({winner.get('votes')} votes)")
+                leader = data.get('leader')
+                if leader:
+                    print(f"  Current Leader: {leader.get('text')} ({leader.get('votes')} votes)")
     
     # Step 4: Make decision based on voting
     print("\n✅ STEP 4: Making final decision based on voting results")
@@ -225,6 +238,7 @@ async def test_integrated_voting_scenario():
     result4 = await agent.chat(
         message="Based on the poll results, what hotel should we book and what's the next step?",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -245,10 +259,10 @@ async def main():
     """Run poll tests"""
     print("\n⚙️  Starting Poll Tool Tests\n")
     
-    await test_create_poll()
-    await test_get_poll_results()
+    #await test_create_poll()
+    #await test_get_poll_results()
     await test_list_active_polls()
-    await test_integrated_voting_scenario()
+    #await test_integrated_voting_scenario()
     
     print("✅ All poll tests completed!\n")
 

@@ -20,6 +20,7 @@ async def test_budget_query():
     result = await agent.chat(
         message=message,
         group_id="test_group_1",
+        user_id="test_user_1",
         stream=False
     )
     
@@ -54,6 +55,7 @@ async def test_hotel_query():
     result = await agent.chat(
         message=message,
         group_id="test_group_2",
+        user_id="test_user_2",
         user_preferences={
             "budget_range": "medium",
             "amenities_preferred": ["WiFi", "Breakfast"]
@@ -97,6 +99,7 @@ async def test_flight_query():
     result = await agent.chat(
         message=message,
         group_id="test_group_3",
+        user_id="test_user_3",
         stream=False
     )
     
@@ -142,7 +145,7 @@ async def test_integrated_trip_planning():
     #await test_step3_check_locations()
     #await test_step4_recommend_destination()
     await test_step5_search_accommodations()
-    #await test_step6_generate_itinerary()
+    # await test_step6_generate_itinerary()
     
     print("\n" + "=" * 80)
     print("✅ INTEGRATION TEST COMPLETED")
@@ -169,6 +172,7 @@ async def test_step1_set_preferences():
     result = await agent.chat(
         message="Update my preferences: I'm interested in museums and food & dining, I'm vegetarian, my budget is $3000, and I prefer a moderate travel pace. I'm departing from New York.",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -193,6 +197,7 @@ async def test_step2_analyze_consensus():
     result = await agent.chat(
         message="Show me everyone's travel preferences and what we have in common",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -221,6 +226,7 @@ async def test_step3_check_locations():
     result = await agent.chat(
         message="Where are all the group members located?",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -245,6 +251,7 @@ async def test_step4_recommend_destination():
     result = await agent.chat(
         message="Recommend a European city for a 5-day trip in March. We all like museums and good food.",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -280,8 +287,9 @@ async def test_step5_search_accommodations():
     group_id = "integration_test_group"
     
     result = await agent.chat(
-        message="Find hotels for 3 guests in Philadelphia for December 17-20, 2025. Budget is $150 per night.",
+        message="Find hotels for 3 guests in Philadelphia for December 17-20, 2025. Budget is $200 per night.",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
@@ -308,6 +316,7 @@ async def test_step6_generate_itinerary():
     result = await agent.chat(
         message="Create a day-by-day itinerary for our trip that includes museums, good restaurants (vegetarian-friendly), and cultural activities.",
         group_id=group_id,
+        user_id="integration_user_1",
         stream=False
     )
     
