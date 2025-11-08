@@ -9,6 +9,8 @@ type MessageBubble = ChatMessage & {
   variant: "me" | "friend";
   initials: string;
   timestamp: string;
+  displayName: string;
+  text: string;
 };
 
 export default function GroupPage() {
@@ -18,6 +20,7 @@ export default function GroupPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [messages, setMessages] = useState<MessageBubble[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -32,12 +35,14 @@ export default function GroupPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
+        setAuthChecked(true);
         router.push("/");
         return;
       }
 
       setUserId(user.id);
       setUserName(user.user_metadata?.name || user.email);
+      setAuthChecked(true);
     };
 
     getUser();
@@ -45,12 +50,12 @@ export default function GroupPage() {
 
   // Initial load + realtime subscription.
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !authChecked || !userId) return;
 
     const loadMessages = async () => {
       try {
         const data = await fetchGroupMessages(groupId);
-        setMessages(data.map((msg) => decorateMessage(msg, userId)));
+        setMessages(data.map((msg) => decorateMessage(msg, userId, userName)));
       } catch (err) {
         console.error("Failed to fetch messages", err);
       } finally {
@@ -72,7 +77,11 @@ export default function GroupPage() {
         },
         (payload) => {
           const newMessage = payload.new as ChatMessage;
-          setMessages((prev) => [...prev, decorateMessage(newMessage, userId)]);
+          setMessages((prev) =>
+            prev.some((existing) => existing.id === newMessage.id)
+              ? prev
+              : [...prev, decorateMessage(newMessage, userId, userName)],
+          );
         },
       )
       .subscribe();
@@ -80,7 +89,7 @@ export default function GroupPage() {
     return () => {
       channel.unsubscribe();
     };
-  }, [groupId, userId]);
+  }, [groupId, userId, userName, authChecked]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -91,17 +100,23 @@ export default function GroupPage() {
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || !userId || sending) return;
+    if (!trimmed || !userId || !groupId || sending) return;
 
     setSending(true);
     try {
-      await sendGroupMessage({
+      const inserted = await sendGroupMessage({
         groupId,
         content: trimmed,
         senderId: userId,
-        senderName: userName,
       });
       setInput("");
+      if (inserted) {
+        setMessages((prev) =>
+          prev.some((existing) => existing.id === inserted.id)
+            ? prev
+            : [...prev, decorateMessage(inserted, userId, userName)],
+        );
+      }
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
@@ -167,13 +182,13 @@ export default function GroupPage() {
                   >
                     <div className="flex items-center justify-between gap-4 text-xs font-semibold">
                       <span className={msg.variant === "me" ? "text-white/80" : "text-blue-500"}>
-                        {msg.sender_name || "Unknown"}
+                        {msg.displayName}
                       </span>
                       <span className={msg.variant === "me" ? "text-white/70" : "text-gray-400"}>
                         {msg.timestamp}
                       </span>
                     </div>
-                    <p className="mt-2 text-base leading-relaxed">{msg.content}</p>
+                    <p className="mt-2 text-base leading-relaxed">{msg.text}</p>
                   </div>
                 </div>
               ))
@@ -202,14 +217,49 @@ export default function GroupPage() {
   );
 }
 
-function decorateMessage(message: ChatMessage, currentUserId: string | null): MessageBubble {
+function decorateMessage(
+  message: ChatMessage,
+  currentUserId: string | null,
+  currentUserName: string | null,
+): MessageBubble {
+  const isSelf = message.sender_id === currentUserId;
+  const text = extractText(message.body);
+  const fallbackName = isSelf ? currentUserName || "You" : "Tripmate";
+  const displayName = (message as any).sender_name || fallbackName;
+  const initials =
+    displayName?.slice(0, 2).toUpperCase() ||
+    message.sender_id.slice(0, 2).toUpperCase() ||
+    "??";
+
   return {
     ...message,
-    variant: message.sender_id === currentUserId ? "me" : "friend",
-    initials: (message.sender_name || "??").slice(0, 2).toUpperCase(),
+    variant: isSelf ? "me" : "friend",
+    initials,
+    displayName,
+    text,
     timestamp: new Date(message.created_at).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     }),
   };
+}
+
+function extractText(body: ChatMessage["body"]): string {
+  if (body === null || body === undefined) return "";
+
+  if (typeof body === "string") return body;
+
+  if (typeof body === "object") {
+    if (typeof body.text === "string") return body.text;
+    if (typeof body.message === "string") return body.message;
+    if (typeof body.content === "string") return body.content;
+    if ("data" in body && typeof body.data === "string") return body.data;
+    try {
+      return JSON.stringify(body);
+    } catch {
+      return "";
+    }
+  }
+
+  return String(body);
 }

@@ -1,63 +1,101 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { createGroup } from "../lib/api";
+import { supabase } from "../lib/supabaseClient";
+import { createGroup, joinGroupByCode, GroupRecord } from "../lib/api";
 
-const randomCode = () =>
-  `grp-${Math.random().toString(36).slice(2, 6)}${Math.random()
-    .toString(36)
-    .slice(2, 4)}`.toUpperCase();
+type BannerState = { tone: "success" | "error"; text: string } | null;
 
 export default function GroupsLanding() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [creating, setCreating] = useState(false);
-  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
+  const [createdGroup, setCreatedGroup] = useState<GroupRecord | null>(null);
+  const [createBanner, setCreateBanner] = useState<BannerState>(null);
+
   const [joinCode, setJoinCode] = useState("");
-  const [joinStatus, setJoinStatus] = useState<string | null>(null);
+  const [joinBanner, setJoinBanner] = useState<BannerState>(null);
   const [joining, setJoining] = useState(false);
+
   const [groupName, setGroupName] = useState("");
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setAuthChecked(true);
+        router.push("/");
+        return;
+      }
+
+      setUserId(user.id);
+      setAuthChecked(true);
+    };
+
+    fetchUser();
+  }, [router]);
+
   const handleCreateGroup = async () => {
-    if (creating || !groupName.trim()) return;
+    if (creating || !groupName.trim() || !userId) return;
     setCreating(true);
-    setJoinStatus(null);
+    setCreateBanner(null);
+    setJoinBanner(null);
 
     try {
-      // For now, generate a random group ID
-      // Later, this will call the actual API
-      const newId = randomCode().toLowerCase();
-      setCreatedGroupId(newId);
-      
-      // TODO: Uncomment when backend is ready
-      // const group = await createGroup(groupName.trim());
-      // setCreatedGroupId(group.id);
-    } catch (error) {
-      console.error("Failed to create group:", error);
-      setJoinStatus("Failed to create group. Please try again.");
+      const group = await createGroup(groupName.trim(), userId);
+      await joinGroupByCode(group.invite_code, userId);
+      setCreatedGroup(group);
+      setGroupName("");
+      setCreateBanner({
+        tone: "success",
+        text: "Group created! Share this code with friends.",
+      });
+    } catch (error: any) {
+      setCreateBanner({
+        tone: "error",
+        text: error?.message || "Failed to create group. Please try again.",
+      });
     } finally {
       setCreating(false);
     }
   };
 
-  const handleJoinGroup = () => {
-    if (!joinCode.trim() || joining) return;
+  const handleJoinGroup = async () => {
+    if (!joinCode.trim() || joining || !userId) return;
     setJoining(true);
-    setCreatedGroupId(null);
-    setJoinStatus(null);
+    setJoinBanner(null);
+    setCreatedGroup(null);
 
-    // For now, just navigate to the group page
-    // Later, this will validate the code and join the group via API
-    setTimeout(() => {
-      const normalizedCode = joinCode.trim().toLowerCase().replace(/\s+/g, "-");
-      router.push(`/g/${normalizedCode}`);
+    try {
+      const normalized = joinCode.trim().toLowerCase();
+      const res = await joinGroupByCode(normalized, userId);
+      setJoinBanner({
+        tone: "success",
+        text: "You're in! Redirecting you to the chat…",
+      });
+      setJoinCode("");
+      setTimeout(() => {
+        router.push(`/g/${res.group_id}`);
+      }, 600);
+    } catch (error: any) {
+      setJoinBanner({
+        tone: "error",
+        text: error?.message || "Unable to join group. Double-check the code.",
+      });
+    } finally {
       setJoining(false);
-    }, 300);
+    }
   };
 
   const openGroup = () => {
-    if (createdGroupId) {
-      router.push(`/g/${createdGroupId.toLowerCase()}`);
+    if (createdGroup?.id) {
+      router.push(`/g/${createdGroup.id}`);
     }
   };
 
@@ -100,24 +138,37 @@ export default function GroupsLanding() {
               onChange={(e) => setGroupName(e.target.value)}
               placeholder="Enter group name..."
               className="mt-4 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-300 focus:outline-none"
-              onKeyPress={(e) => e.key === "Enter" && handleCreateGroup()}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
             />
             <button
               className="mt-4 w-full rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleCreateGroup}
-              disabled={creating || !groupName.trim()}
+              disabled={creating || !groupName.trim() || !authChecked || !userId}
             >
               {creating ? "Creating..." : "Create new group"}
             </button>
-            {createdGroupId && (
+            {createBanner && (
+              <p
+                className={`mt-3 rounded-2xl border px-4 py-3 text-sm ${
+                  createBanner.tone === "success"
+                    ? "border-blue-100 bg-blue-50/80 text-blue-700"
+                    : "border-red-100 bg-red-50/80 text-red-600"
+                }`}
+              >
+                {createBanner.text}
+              </p>
+            )}
+            {createdGroup && (
               <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-700">
                 <p className="font-semibold">Share this invite code:</p>
-                <p className="mt-1 text-2xl tracking-[0.35em]">{createdGroupId.toUpperCase()}</p>
+                <p className="mt-1 text-2xl tracking-[0.35em]">
+                  {createdGroup.invite_code.toUpperCase()}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-3">
                   <button
                     onClick={() => {
                       if (typeof navigator !== "undefined" && navigator.clipboard) {
-                        navigator.clipboard.writeText(createdGroupId);
+                        navigator.clipboard.writeText(createdGroup.invite_code);
                       }
                     }}
                     className="rounded-full border border-blue-200 px-4 py-1 text-xs font-semibold text-blue-600 hover:bg-white transition"
@@ -150,18 +201,24 @@ export default function GroupsLanding() {
               placeholder="GRP-AB12"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              onKeyPress={(e) => e.key === "Enter" && handleJoinGroup()}
+              onKeyDown={(e) => e.key === "Enter" && handleJoinGroup()}
             />
             <button
               className="mt-4 w-full rounded-2xl bg-gradient-to-r from-orange-400 via-pink-400 to-purple-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-200 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
               onClick={handleJoinGroup}
-              disabled={joining || !joinCode.trim()}
+              disabled={joining || !joinCode.trim() || !authChecked || !userId}
             >
               {joining ? "Joining..." : "Join group"}
             </button>
-            {joinStatus && (
-              <p className="mt-4 rounded-2xl border border-orange-100 bg-orange-50/80 p-4 text-sm text-orange-700">
-                {joinStatus}
+            {joinBanner && (
+              <p
+                className={`mt-4 rounded-2xl border p-4 text-sm ${
+                  joinBanner.tone === "success"
+                    ? "border-orange-100 bg-orange-50/80 text-orange-700"
+                    : "border-red-100 bg-red-50/80 text-red-600"
+                }`}
+              >
+                {joinBanner.text}
               </p>
             )}
           </div>
@@ -203,4 +260,3 @@ export default function GroupsLanding() {
     </div>
   );
 }
-
