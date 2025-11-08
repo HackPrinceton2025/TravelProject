@@ -15,6 +15,13 @@ export default function HomePage() {
     checkUser();
   }, []);
 
+  useEffect(() => {
+    // Redirect to groups if user is logged in
+    if (user && !loading) {
+      router.push("/groups");
+    }
+  }, [user, loading, router]);
+
   const checkUser = async () => {
     try {
       const currentUser = await getCurrentUser();
@@ -28,7 +35,10 @@ export default function HomePage() {
 
   const handleAuthSuccess = () => {
     setIsAuthModalOpen(false);
-    checkUser();
+    checkUser().then(() => {
+      // Redirect to groups page after successful auth
+      router.push("/groups");
+    });
   };
 
   const handleSignOut = async () => {
