@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Any, Literal
 from datetime import datetime
-from pydantic import BaseModel, Field, condecimal
+from pydantic import BaseModel, Field, condecimal, conint
 
 
 # ============================================
@@ -99,133 +99,53 @@ class BudgetBreakdown(BaseModel):
     accommodation: float
     food: float
     activities: float
+    transportation: float
+    miscellaneous: float
+    total: float
+    currency: str = "USD"
 
 
 class BudgetCardData(BaseModel):
-    """Budget summary card data"""
-    total_budget: float
-    people: int
-    duration_days: int
-    per_person_budget: float
-    per_day_budget: float
+    """Budget planning card"""
     breakdown: BudgetBreakdown
-    currency: str = "USD"
+    per_person: Optional[float] = None
+    notes: Optional[str] = None
 
 
-class ExpenseCardData(BaseModel):
-    """Expense tracking card data"""
-    description: str
-    amount: float
-    paid_by: str
-    timestamp: str
-    currency: str = "USD"
-    split_among: Optional[List[str]] = None
+class MapCardData(BaseModel):
+    """Map visualization card"""
+    locations: List[LocationData]
+    center: Optional[Dict[str, float]] = None  # {"lat": x, "lng": y}
+    zoom_level: int = 10
 
 
-class DirectionsCardData(BaseModel):
-    """Directions/route card data"""
-    origin: str
-    destination: str
-    waypoints: List[str] = []
-    mode: str = "driving"
-    total_distance_km: float
-    estimated_duration_minutes: int
-    steps: List[Dict[str, Any]]
-
-
-class UserLocationCardData(BaseModel):
-    """User location card data"""
-    user_id: str
-    user_name: Optional[str] = None
-    city: str
-    state: Optional[str] = None
-    country: str
-    country_code: Optional[str] = None
-    coordinates: Dict[str, float]  # {"lat": x, "lng": y}
-    timezone: Optional[str] = None
-    last_updated: Optional[str] = None
-
-
-class UserPreferencesCardData(BaseModel):
-    """User travel preferences card data"""
-    user_id: str
-    user_name: Optional[str] = None
-    group_id: str
-    departure_city: Optional[str] = None
-    budget_max: Optional[float] = None
-    budget_range: Optional[str] = None  # low, medium, high
-    interests: Optional[List[str]] = []
-    dietary_restrictions: Optional[List[str]] = []
-    accommodation_preference: Optional[str] = None
-    travel_pace: Optional[str] = None
-    available_dates: Optional[Dict[str, str]] = None  # {"start": "...", "end": "..."}
-    # Extensible for custom fields
-    custom_fields: Optional[Dict[str, Any]] = None
-
-
-class GroupConsensusCardData(BaseModel):
-    """Group consensus summary card data"""
-    group_id: str
-    total_members: int
-    budget_range: Dict[str, float]  # {"min": x, "max": y, "average": z}
-    common_interests: List[str]
-    overlapping_dates: Optional[Dict[str, str]] = None
-    departure_cities: List[str]
-    dietary_restrictions: List[str]
-
-
-class ConfirmationCardData(BaseModel):
-    """Generic confirmation card data"""
-    success: bool
-    message: str
-    updated_fields: Optional[List[str]] = None
-    user_id: Optional[str] = None
-    group_id: Optional[str] = None
-
-
-class PollOptionData(BaseModel):
-    """Single option in a poll"""
-    option_id: str
-    text: str
-    votes: int
-    percentage: Optional[float] = None
-    voters: Optional[List[str]] = []
-
-
-class PollCardData(BaseModel):
-    """Poll/voting card data"""
-    poll_id: str
-    group_id: str
-    question: str
-    poll_type: str  # "single_choice" or "multiple_choice"
-    status: str  # "active" or "closed"
-    options: List[PollOptionData]
-    total_votes: int
-    total_members: Optional[int] = None
-    participation_rate: Optional[float] = None
-    winner: Optional[PollOptionData] = None
-    pending_voters: Optional[List[str]] = []
-    created_at: Optional[str] = None
-    closed_at: Optional[str] = None
+class InteractiveElement(BaseModel):
+    """Interactive UI elements (polls, buttons, etc.)"""
+    type: Literal["poll", "button", "date_picker", "dropdown"]
+    id: str
+    label: str
+    options: Optional[List[str]] = None  # For poll/dropdown
+    action: Optional[str] = None  # API endpoint or callback
 
 
 class AgentCard(BaseModel):
     """
-    A structured card that can be rendered in the UI.
-    Type determines which component to use for rendering.
+    Generic card structure that can hold any type of structured data.
+    The 'type' field determines which schema is used in 'data'.
     """
+    card_id: str = Field(default_factory=lambda: f"card_{id(object())}")
     type: Literal[
-        "hotel", "flight", "restaurant", "attraction", 
-        "event", "itinerary", "budget", "expense", "directions", "location",
-        "user_preferences", "group_consensus", "confirmation", "preference_schema", "poll"
+        "hotel",
+        "flight",
+        "restaurant",
+        "attraction",
+        "event",
+        "itinerary",
+        "budget",
+        "map",
+        "generic"
     ]
-    id: str
-    data: Dict[str, Any]  # Will match one of the *CardData schemas above
-
-
-class InteractiveElement(BaseModel):
-    """Interactive elements like polls or action buttons"""
-    type: Literal["poll", "button", "selection"]
+    title: Optional[str] = None
     data: Dict[str, Any]
 
 
@@ -241,13 +161,10 @@ class AgentResponse(BaseModel):
 
 
 # ============================================
-# Existing Schemas
+# Core Application Schemas
 # ============================================
 
-class Group(BaseModel):
-    id: str
-    name: str
-
+# --- Groups & Messages ---
 
 class GroupCreate(BaseModel):
     name: str
@@ -271,3 +188,40 @@ class ExpenseCreate(BaseModel):
     description: Optional[str] = None
     amount: condecimal(ge=0)
     split_between: List[ExpenseParticipant]
+
+# --- Polls ---
+
+class PollStart(BaseModel):
+    group_id: str
+    created_by: str
+    mode: Literal['discover', 'fixed']
+    days: Optional[conint(ge=1, le=30)] = None
+    final_destination: Optional[str] = None  # required if mode='fixed'
+
+class PreferenceCreate(BaseModel):
+    poll_id: str
+    user_id: str
+    place_type: Optional[str] = None        # 'beach'|'mountain'|'city'|...
+    budget: Optional[conint(ge=0)] = None   # per-person USD
+    interests: Optional[List[str]] = None   # tags
+
+class SuggestionItem(BaseModel):
+    place_name: str
+    reason: Optional[str] = None
+    est_budget: Optional[int] = None
+    activities: Optional[List[str]] = None
+    fun_fact: Optional[str] = None
+
+class PollSuggest(BaseModel):
+    poll_id: str
+    suggestions: List[SuggestionItem]
+
+class VoteCreate(BaseModel):
+    suggestion_id: str
+    user_id: str
+    vote: bool  # True=yes, False=no
+
+class ConfirmChoice(BaseModel):
+    poll_id: str
+    suggestion_id: str
+    confirmed_by: str
