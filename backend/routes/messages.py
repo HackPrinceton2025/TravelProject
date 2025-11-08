@@ -6,7 +6,7 @@ router = APIRouter()
 
 @router.get("/")
 def get_messages(group_id: str):
-    response = supabase.table("messages").select("*").eq("group_id", group_id).execute()
+    response = supabase.table("messages").select("*").eq("group_id", group_id).order("created_at").execute()
     return response.data
 
 @router.post("/")
@@ -16,4 +16,3 @@ def send_message(payload: MessageCreate):
     if not res.data:
         raise HTTPException(status_code=400, detail="Insert failed")
     return res.data[0]
-
