@@ -1,42 +1,27 @@
-from typing import Dict, List, Optional
-from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, condecimal
+from typing import Any, Optional, List
 
-
-class Group(BaseModel):
-    id: str
-    name: str
-
+# --- Groups & Messages ---
 
 class GroupCreate(BaseModel):
-    name: str = Field(..., min_length=1)
-
-
-class Message(BaseModel):
-    id: str
-    group_id: str
-    sender: str
-    content: str
-    created_at: Optional[datetime] = None
-
+    name: str
+    created_by: Optional[str] = None  # later connected to users table
 
 class MessageCreate(BaseModel):
     group_id: str
-    sender: str
-    content: str
+    sender_id: str
+    kind: Optional[str] = "text"
+    body: Any  # can hold {"text": "hello"} or more complex AI content
 
+# --- Expense Splitting ---
 
-class Poll(BaseModel):
-    id: str
+class ExpenseParticipant(BaseModel):
+    user_id: str
+    share: Optional[condecimal(ge=0)] = None  # optional for equal split
+
+class ExpenseCreate(BaseModel):
     group_id: str
-    question: str
-    options: List[str]
-    votes: Dict[str, int] = {}
-
-
-class PollCreate(BaseModel):
-    group_id: str
-    question: str
-    options: List[str]
-
-
+    payer_id: str          # current user later (auth)
+    description: Optional[str] = None
+    amount: condecimal(ge=0)
+    split_between: List[ExpenseParticipant]

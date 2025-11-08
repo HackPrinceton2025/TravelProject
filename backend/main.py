@@ -1,27 +1,33 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import groups, messages, polls, agent
+# Import routes
+from routes import users, groups, group_members, messages, agent, expenses
 
-app = FastAPI(title="TravelProject API")
+app = FastAPI(
+    title="TravelApp Expense Splitter API",
+    version="1.0.0",
+    description="Backend API for group expense tracking and bill splitting."
+)
 
-# Allow local frontend by default
+# --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, replace * with your frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(groups.router, prefix="/api/groups")
-app.include_router(messages.router, prefix="/api/messages")
-app.include_router(polls.router, prefix="/api/polls")
-app.include_router(agent.router, prefix="/api/agent")
+# --- Routers ---
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(groups.router, prefix="/api/groups", tags=["groups"])
+app.include_router(group_members.router, prefix="/api/group_members", tags=["group_members"])
+app.include_router(messages.router, prefix="/api/messages", tags=["messages"])
+app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
+app.include_router(expenses.router, prefix="/api/expenses", tags=["expenses"])
 
-
+# --- Health check ---
 @app.get("/")
 def root():
-    return {"status": "TravelProject API running"}
-
-
+    return {"message": "Expense Splitter backend running successfully"}
