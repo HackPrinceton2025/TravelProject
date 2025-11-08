@@ -13,14 +13,15 @@ async def test_create_poll():
     print("=" * 80)
     
     agent = get_travel_agent()
-    message = "Create a poll asking 'Which hotel should we book?' with options: Hotel Le Marais for $120 per night, Hotel Montmartre for $95 per night, and Hotel Latin Quarter for $150 per night"
-    
+    #message = "Create a poll asking 'Which hotel should we book?' with options: Hotel Le Marais for $120 per night, Hotel Montmartre for $95 per night, and Hotel Latin Quarter for $150 per night"
+    message = "Create a poll for dinner menu with options: Korean, Japanese, Indian, American"
+
     print(f"Query: {message}\n")
     
     result = await agent.chat(
         message=message,
-        user_id="d921a507-969c-4aec-a821-b643747cbf41",
-        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
+        user_id="33e3091e-98fa-468f-bf93-562c593232ff",
+        group_id="1748878f-bbed-411a-bb6c-a0409b72efb9",
         stream=False
     )
     
@@ -58,8 +59,8 @@ async def test_get_poll_results():
     
     result = await agent.chat(
         message=message,
-        user_id="d921a507-969c-4aec-a821-b643747cbf41",
-        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
+        user_id="33e3091e-98fa-468f-bf93-562c593232ff",
+        group_id="1748878f-bbed-411a-bb6c-a0409b72efb9",
         stream=False
     )
     
@@ -114,8 +115,8 @@ async def test_list_active_polls():
     
     result = await agent.chat(
         message=message,
-        user_id="d921a507-969c-4aec-a821-b643747cbf41",
-        group_id="4ae635cd-eb86-4734-b072-ca76caf5963c",
+        user_id="33e3091e-98fa-468f-bf93-562c593232ff",
+        group_id="1748878f-bbed-411a-bb6c-a0409b72efb9",
         stream=False
     )
     
@@ -259,8 +260,8 @@ async def main():
     """Run poll tests"""
     print("\n⚙️  Starting Poll Tool Tests\n")
     
-    #await test_create_poll()
-    #await test_get_poll_results()
+    await test_create_poll()
+    await test_get_poll_results()
     await test_list_active_polls()
     #await test_integrated_voting_scenario()
     
