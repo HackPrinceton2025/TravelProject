@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import groups, messages, polls, agent
+from routes import messages ## will add more routes here
 
 app = FastAPI(title="TravelProject API")
 
@@ -14,10 +14,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(groups.router, prefix="/api/groups")
-app.include_router(messages.router, prefix="/api/messages")
-app.include_router(polls.router, prefix="/api/polls")
-app.include_router(agent.router, prefix="/api/agent")
+
+app.include_router(messages.router, prefix="/api/messages", tags=["messages"])
 
 
 @app.get("/")
