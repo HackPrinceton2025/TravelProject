@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import routes
-from routes import users, groups, group_members, messages, agent, expenses
+from routes import users, groups, group_members, messages, agent, expenses, polls
 
 app = FastAPI(
     title="TravelApp Expense Splitter API",
@@ -26,6 +26,7 @@ app.include_router(group_members.router, prefix="/api/group_members", tags=["gro
 app.include_router(messages.router, prefix="/api/messages", tags=["messages"])
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(expenses.router, prefix="/api/expenses", tags=["expenses"])
+app.include_router(polls.router, prefix="/api/polls", tags=["polls"])
 
 # --- Health check ---
 @app.get("/")
