@@ -1,4 +1,4 @@
-from backend.routes import polls
+from routes import polls
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
