@@ -1,0 +1,14 @@
+{
+  "name": "track_expense",
+  "description": "Record a group expense for later reconciliation.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "description": { "type": "string" },
+      "amount": { "type": "number", "minimum": 0 },
+      "paidBy": { "type": "string" }
+    },
+    "required": ["description", "amount", "paidBy"]
+  }
+}
+

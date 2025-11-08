@@ -1,0 +1,11 @@
+{
+  "conversations": [
+    {
+      "messages": [
+        {"role": "user", "content": "We want a 4-day beach trip in June from NYC with a $1,500 budget each."},
+        {"role": "assistant", "content": "Great! I'll shortlist destinations and compare flight+stay options within budget."}
+      ]
+    }
+  ]
+}
+
