@@ -189,7 +189,36 @@ class ExpenseCreate(BaseModel):
     amount: condecimal(ge=0)
     split_between: List[ExpenseParticipant]
 
-# --- Polls ---
+# --- Polls (New System) ---
+
+class PollOptionCreate(BaseModel):
+    """Single option in a poll"""
+    text: str
+    metadata: Optional[Dict[str, Any]] = None  # Extra data (price, rating, etc.)
+
+class PollCreate(BaseModel):
+    """Create a new poll for group voting"""
+    group_id: str
+    created_by: str
+    question: str
+    options: List[PollOptionCreate]
+    poll_type: Literal['destination', 'hotel', 'flight', 'restaurant', 'activity', 'date', 'time', 'custom'] = 'custom'
+    voting_type: Literal['single_choice', 'multiple_choice'] = 'single_choice'
+    expires_at: Optional[datetime] = None
+
+class PollVote(BaseModel):
+    """Cast a vote on a poll"""
+    poll_id: str
+    user_id: str
+    option_ids: List[str]  # List of selected option IDs
+
+class PollConfirm(BaseModel):
+    """Confirm the winning option"""
+    poll_id: str
+    confirmed_by: str
+    winning_option_id: str
+
+# --- Old Poll System (to be deprecated) ---
 
 class PollStart(BaseModel):
     group_id: str

@@ -22,9 +22,10 @@ from agent.tools.preferences import (
 )
 from agent.tools.polls import (
     create_poll,
-    get_poll_results,
-    close_poll,
-    list_active_polls
+    get_poll_status,
+    get_latest_poll,
+    confirm_poll_result,
+    cancel_poll
 )
 # Google Maps API (Places + Directions + Hotels)
 from agent.tools.google_maps import (
@@ -61,9 +62,10 @@ class TravelAgentRunner:
             update_user_preferences,
             get_group_preference_schema,
             create_poll,
-            get_poll_results,
-            close_poll,
-            list_active_polls,
+            get_poll_status,
+            get_latest_poll,
+            confirm_poll_result,
+            cancel_poll,
             # Google Maps API
             search_restaurants,
             search_attractions,
