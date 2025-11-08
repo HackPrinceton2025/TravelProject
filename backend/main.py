@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import messages, groups, agent ## will add more routes here
+from routes import messages, groups, agent, group_members, users ## will add more routes here
 
 
 
@@ -19,6 +19,10 @@ app.add_middleware(
 
 app.include_router(messages.router, prefix="/api/messages", tags=["messages"])
 app.include_router(groups.router, prefix="/api/groups", tags=["groups"])
+app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
+app.include_router(group_members.router, prefix="/api/group_members", tags=["group_members"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+
 
 
 
