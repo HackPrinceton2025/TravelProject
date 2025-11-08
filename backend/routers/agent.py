@@ -1,35 +1,64 @@
-import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-import requests
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from agent.runner import get_travel_agent
+from models.schemas import AgentResponse, AgentCard, InteractiveElement
 
 router = APIRouter(tags=["agent"])
 
 
-@router.post("/chat")
-def chat_with_agent(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Forwards a minimal request to a Dedalus-compatible API.
-    Expected payload: {"messages": [...], "tools": [...]}
-    """
-    base = os.getenv("DEDALUS_API_BASE", "")
-    key = os.getenv("DEDALUS_API_KEY", "")
-    model = os.getenv("ANTHROPIC_MODEL", "claude-3-7-sonnet")
+class ChatRequest(BaseModel):
+    """Request model for chat endpoint"""
+    message: str
+    group_id: str
+    user_preferences: Optional[Dict[str, Any]] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
+    stream: bool = False
 
-    if not base or not key:
-        return {"error": "Agent API is not configured"}
 
-    headers = {"Authorization": f"Bearer {key}"}
-    data = {
-        "model": model,
-        "messages": payload.get("messages", []),
-        "tools": payload.get("tools", []),
-    }
-    r = requests.post(f"{base}/v1/chat/completions", headers=headers, json=data, timeout=30)
+@router.post("/chat", response_model=AgentResponse)
+async def chat_with_agent(payload: ChatRequest) -> AgentResponse:
+    """
+    Chat with the AI travel agent.
+    
+    The agent has access to tools for:
+    - Budget calculation
+    - Flight search
+    - Accommodation search
+    - Itinerary generation
+    - Route directions
+    - Expense tracking
+    
+    Returns structured response with:
+    - message: Human-readable text
+    - cards: Structured data cards for UI rendering (hotels, flights, etc.)
+    - interactive_elements: Polls, buttons, etc.
+    
+    Args:
+        payload: Chat request with message, group_id, and optional context
+        
+    Returns:
+        Structured agent response with cards
+    """
     try:
-        return r.json()
-    except Exception:
-        return {"status_code": r.status_code, "text": r.text}
+        agent = get_travel_agent()
+        
+        result = await agent.chat(
+            message=payload.message,
+            group_id=payload.group_id,
+            user_preferences=payload.user_preferences,
+            chat_history=payload.chat_history,
+            stream=payload.stream
+        )
+        
+        return AgentResponse(**result)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Agent error: {str(e)}"
+        )
 
 
