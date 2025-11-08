@@ -1,14 +1,27 @@
-from pydantic import BaseModel
-from typing import Any, Optional
+from pydantic import BaseModel, condecimal
+from typing import Any, Optional, List
 
-# Schema for creating a new group
+# --- Groups & Messages ---
+
 class GroupCreate(BaseModel):
     name: str
-    created_by: Optional[str] = None  # later we’ll connect to users
+    created_by: Optional[str] = None  # later connected to users table
 
-# Schema for sending a message
 class MessageCreate(BaseModel):
     group_id: str
     sender_id: str
     kind: Optional[str] = "text"
     body: Any  # can hold {"text": "hello"} or more complex AI content
+
+# --- Expense Splitting ---
+
+class ExpenseParticipant(BaseModel):
+    user_id: str
+    share: Optional[condecimal(ge=0)] = None  # optional for equal split
+
+class ExpenseCreate(BaseModel):
+    group_id: str
+    payer_id: str          # current user later (auth)
+    description: Optional[str] = None
+    amount: condecimal(ge=0)
+    split_between: List[ExpenseParticipant]
