@@ -22,8 +22,7 @@ from agent.tools.preferences import (
 )
 from agent.tools.polls import (
     create_poll,
-    get_poll_status,
-    get_latest_poll,
+    get_group_polls,
     confirm_poll_result,
     cancel_poll
 )
@@ -62,8 +61,7 @@ class TravelAgentRunner:
             update_user_preferences,
             get_group_preference_schema,
             create_poll,
-            get_poll_status,
-            get_latest_poll,
+            get_group_polls,
             confirm_poll_result,
             cancel_poll,
             # Google Maps API

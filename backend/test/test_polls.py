@@ -13,8 +13,9 @@ async def test_create_poll():
     print("=" * 80)
     
     agent = get_travel_agent()
-    message = "Create a poll asking 'Which hotel should we book?' with options: Hotel Le Marais for $120 per night, Hotel Montmartre for $95 per night, and Hotel Latin Quarter for $150 per night"
-    
+    #message = "Create a poll asking 'Which hotel should we book?' with options: Hotel Le Marais for $120 per night, Hotel Montmartre for $95 per night, and Hotel Latin Quarter for $150 per night"
+    message = "Create a poll for dinner menu with options: Korean, Japanese, Indian, American"
+
     print(f"Query: {message}\n")
     
     result = await agent.chat(
@@ -260,8 +261,8 @@ async def main():
     print("\n⚙️  Starting Poll Tool Tests\n")
     
     #await test_create_poll()
-    #await test_get_poll_results()
-    await test_list_active_polls()
+    await test_get_poll_results()
+    #await test_list_active_polls()
     #await test_integrated_voting_scenario()
     
     print("✅ All poll tests completed!\n")

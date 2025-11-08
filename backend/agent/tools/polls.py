@@ -119,113 +119,110 @@ def create_poll(
         }
 
 
-def get_poll_status(
-    poll_id: str,
-    group_id: str
+def get_group_polls(
+    group_id: str,
+    status: Optional[str] = None,
+    poll_type: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Get current voting status and check if majority reached.
-    Use this to monitor vote progress and detect when majority is reached.
+    Get all polls for a group, with optional filtering.
+    Returns basic poll information without detailed vote analysis.
     
     **When to use:**
-    - User asks: "What's the poll status?"
-    - User asks: "Who's winning?"
-    - After poll creation to check if anyone voted
-    - Periodically to detect when majority is reached
+    - User asks: "Show me all polls"
+    - User asks: "What polls are active?"
+    - User asks: "Show me hotel polls"
     
     **Usage examples:**
-    - "Show me the hotel poll results" → get_poll_status(poll_id="poll_abc123", group_id=GROUP_ID)
-    - "Has anyone voted yet?" → get_poll_status(poll_id="poll_xyz", group_id=GROUP_ID)
-    - Check after creation: create_poll() → get_poll_status() to see current state
+    - "Show all polls" → get_group_polls(group_id=GROUP_ID)
+    - "Show active polls" → get_group_polls(group_id=GROUP_ID, status="active")
+    - "Show hotel polls" → get_group_polls(group_id=GROUP_ID, poll_type="hotel")
     
     Args:
-        poll_id: ID of the poll (from create_poll result or previous context)
-        group_id: ID of the travel group (from context)
+        group_id: ID of the travel group
+        status: Optional filter - 'active', 'confirmed', or 'cancelled'
+        poll_type: Optional filter - 'hotel', 'restaurant', 'destination', 'activity', 'custom', etc.
         
     Returns:
-        Poll status card with:
-        - Current vote counts and percentages per option
-        - Total votes and participation rate
-        - Leader (winning option)
-        - has_majority flag (true if winner has >50% of group members)
-        - List of users who voted
+        List of poll cards with basic information (question, options, vote counts)
     """
     try:
-        # Get poll data
-        poll = supabase.table("polls")\
+        # Build query
+        query = supabase.table("polls")\
             .select("*")\
-            .eq("id", poll_id)\
-            .single()\
-            .execute().data
-        
-        if not poll:
-            raise Exception("Poll not found")
-        
-        # Get options with vote counts
-        options = supabase.table("poll_options")\
-            .select("*")\
-            .eq("poll_id", poll_id)\
-            .order("order_index")\
-            .execute().data
-        
-        # Get total group members
-        members_count = supabase.table("group_members")\
-            .select("id", count="exact")\
             .eq("group_id", group_id)\
-            .execute().count or 0
+            .order("created_at", desc=True)
         
-        # Get who voted
-        votes = supabase.table("poll_votes")\
-            .select("user_id, option_id")\
-            .eq("poll_id", poll_id)\
-            .execute().data
+        if status:
+            query = query.eq("status", status)
+        if poll_type:
+            query = query.eq("poll_type", poll_type)
         
-        voted_users = list(set(v["user_id"] for v in votes))
-        total_votes = len(voted_users)
+        polls_result = query.execute()
         
-        # Calculate percentages and find leader
-        leader_option = None
-        max_votes = 0
+        if not polls_result.data:
+            return {
+                "type": "polls_list",
+                "cards": [],
+                "metadata": {
+                    "group_id": group_id,
+                    "total_polls": 0,
+                    "message": "No polls found"
+                }
+            }
         
-        for opt in options:
-            opt_votes = len([v for v in votes if v["option_id"] == opt["id"]])
-            opt["votes"] = opt_votes
-            opt["percentage"] = (opt_votes / total_votes * 100) if total_votes > 0 else 0
+        # For each poll, get options with vote counts
+        poll_cards = []
+        for poll in polls_result.data:
+            poll_id = poll["id"]
             
-            if opt_votes > max_votes:
-                max_votes = opt_votes
-                leader_option = opt
-        
-        # Check if majority reached (>50% of group members)
-        majority_threshold = members_count / 2
-        has_majority = max_votes > majority_threshold
-        participation_rate = (total_votes / members_count) if members_count > 0 else 0
+            # Get options
+            options = supabase.table("poll_options")\
+                .select("*")\
+                .eq("poll_id", poll_id)\
+                .order("order_index")\
+                .execute().data
+            
+            # Get total votes (count distinct users)
+            votes = supabase.table("poll_votes")\
+                .select("user_id")\
+                .eq("poll_id", poll_id)\
+                .execute().data
+            
+            voted_users = list(set(v["user_id"] for v in votes))
+            total_votes = len(voted_users)
+            
+            # Calculate percentages for each option
+            for opt in options:
+                opt_votes = len([v for v in votes if v.get("option_id") == opt["id"]])
+                opt["votes"] = opt_votes
+                opt["percentage"] = (opt_votes / total_votes * 100) if total_votes > 0 else 0
+            
+            poll_cards.append({
+                "type": "poll",
+                "id": poll_id,
+                "data": {
+                    "poll_id": poll_id,
+                    "question": poll["question"],
+                    "poll_type": poll["poll_type"],
+                    "voting_type": poll["voting_type"],
+                    "status": poll["status"],
+                    "options": options,
+                    "total_votes": total_votes,
+                    "created_at": poll["created_at"],
+                    "winning_option_id": poll.get("winning_option_id"),
+                    "confirmed_at": poll.get("confirmed_at")
+                }
+            })
         
         return {
-            "type": "poll_status",
-            "cards": [
-                {
-                    "type": "poll",
-                    "id": poll_id,
-                    "data": {
-                        "poll_id": poll_id,
-                        "question": poll["question"],
-                        "poll_type": poll["poll_type"],
-                        "status": poll["status"],
-                        "options": options,
-                        "total_votes": total_votes,
-                        "total_members": members_count,
-                        "participation_rate": round(participation_rate * 100, 1),
-                        "has_majority": has_majority,
-                        "leader": leader_option,
-                        "voted_users": voted_users
-                    }
-                }
-            ],
+            "type": "polls_list",
+            "cards": poll_cards,
             "metadata": {
-                "poll_id": poll_id,
-                "has_majority": has_majority,
-                "should_ask_confirmation": has_majority and poll["status"] == "active"
+                "group_id": group_id,
+                "total_polls": len(poll_cards),
+                "status_filter": status,
+                "type_filter": poll_type
             }
         }
     
@@ -237,7 +234,7 @@ def get_poll_status(
                 "id": f"error_{uuid.uuid4().hex[:8]}",
                 "data": {
                     "success": False,
-                    "message": f"Failed to get poll status: {str(e)}",
+                    "message": f"Failed to get polls: {str(e)}",
                     "error_type": "database_error"
                 }
             }],
@@ -249,37 +246,47 @@ def confirm_poll_result(
     poll_id: str,
     group_id: str,
     confirmed_by: str,
-    winning_option_id: Optional[str] = None
+    winning_option_id: str
 ) -> Dict[str, Any]:
     """
     Confirm the poll result and lock it in.
-    AI calls this after user says "confirm".
+    AI calls this after user specifies which option to confirm.
+    
+    **When to use:**
+    - User says: "Confirm option 1"
+    - After majority is reached and user approves
+    
+    **Usage examples:**
+    - User: "Confirm option 1" → confirm_poll_result(poll_id, group_id, user_id, winning_option_id)
     
     Args:
-        poll_id: ID of the poll
+        poll_id: ID of the poll to confirm
         group_id: ID of the group
         confirmed_by: User ID who confirmed
-        winning_option_id: Specific option to confirm (if None, uses current leader)
+        winning_option_id: The option ID to confirm as winner
         
     Returns:
         Confirmation card with locked result
     """
     try:
-        # Get current poll status
-        status_result = get_poll_status(poll_id, group_id)
-        if status_result["type"] == "error_result":
-            return status_result
+        # Get poll and option details
+        poll = supabase.table("polls")\
+            .select("*")\
+            .eq("id", poll_id)\
+            .single()\
+            .execute().data
         
-        poll_data = status_result["cards"][0]["data"]
+        if not poll:
+            raise Exception("Poll not found")
         
-        # Determine winner
-        if winning_option_id:
-            winner = next((opt for opt in poll_data["options"] if opt["id"] == winning_option_id), None)
-        else:
-            winner = poll_data["leader"]
+        winner = supabase.table("poll_options")\
+            .select("*")\
+            .eq("id", winning_option_id)\
+            .single()\
+            .execute().data
         
         if not winner:
-            raise Exception("No winning option found")
+            raise Exception("Option not found")
         
         # Update poll status to 'confirmed'
         supabase.table("polls").update({
@@ -304,9 +311,8 @@ def confirm_poll_result(
                         "success": True,
                         "message": f"Confirmed! {winner['text']}",
                         "poll_id": poll_id,
-                        "question": poll_data["question"],
+                        "question": poll["question"],
                         "winner": winner,
-                        "total_votes": poll_data["total_votes"],
                         "confirmed_at": datetime.now().isoformat()
                     }
                 }
@@ -393,77 +399,3 @@ def cancel_poll(
             "metadata": {"error": str(e)}
         }
 
-
-def get_latest_poll(
-    group_id: str,
-    poll_type: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Get the most recent active poll for the group.
-    Use this when user asks about "the poll" without specifying poll_id.
-    
-    **When to use:**
-    - User: "Show me the poll results" (no specific poll_id mentioned)
-    - User: "What's the voting status?" (refers to recent poll)
-    - User: "Has anyone voted on the hotel poll?" (poll_type hint)
-    - After creating a poll and user asks about it in next message
-    
-    **Usage examples:**
-    - "Show me the poll" → get_latest_poll(group_id=GROUP_ID)
-    - "Hotel poll results?" → get_latest_poll(group_id=GROUP_ID, poll_type="hotel")
-    
-    Args:
-        group_id: ID of the travel group
-        poll_type: Optional filter by type (hotel, restaurant, destination, etc.)
-        
-    Returns:
-        Same format as get_poll_status() with latest poll data
-    """
-    try:
-        # Query for latest active poll
-        query = supabase.table("polls")\
-            .select("*")\
-            .eq("group_id", group_id)\
-            .eq("status", "active")\
-            .order("created_at", desc=True)
-        
-        if poll_type:
-            query = query.eq("poll_type", poll_type)
-        
-        result = query.limit(1).execute()
-        
-        if not result.data or len(result.data) == 0:
-            return {
-                "type": "error_result",
-                "cards": [{
-                    "type": "confirmation",
-                    "id": f"error_{uuid.uuid4().hex[:8]}",
-                    "data": {
-                        "success": False,
-                        "message": "No active poll found for this group",
-                        "error_type": "not_found"
-                    }
-                }],
-                "metadata": {"error": "no_active_poll"}
-            }
-        
-        poll = result.data[0]
-        poll_id = poll["id"]
-        
-        # Use get_poll_status to get full details
-        return get_poll_status(poll_id, group_id)
-    
-    except Exception as e:
-        return {
-            "type": "error_result",
-            "cards": [{
-                "type": "confirmation",
-                "id": f"error_{uuid.uuid4().hex[:8]}",
-                "data": {
-                    "success": False,
-                    "message": f"Failed to get latest poll: {str(e)}",
-                    "error_type": "database_error"
-                }
-            }],
-            "metadata": {"error": str(e)}
-        }
