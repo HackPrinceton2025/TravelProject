@@ -30,13 +30,13 @@ from agent.tools.polls import (
 from agent.tools.google_maps import (
     search_restaurants,
     search_attractions,
-    #search_hotels,
+    search_hotels,
     search_transportation
 )
 # Booking.com API (Flights + Hotels with pricing)
 from agent.tools.rapidapi_search import (
     search_flights_booking,
-    search_hotels_booking
+    #search_hotels_booking
 )
 
 
@@ -67,11 +67,11 @@ class TravelAgentRunner:
             # Google Maps API
             search_restaurants,
             search_attractions,
-            #search_hotels,  # Google Places hotels (basic info)
+            search_hotels,  # Google Places hotels (basic info)
             search_transportation,
             # Booking.com API (with pricing)
             search_flights_booking,
-            search_hotels_booking  # Booking.com hotels (with pricing)
+            #search_hotels_booking  # Booking.com hotels (with pricing)
         ]
         
         # MCP servers for travel planning
@@ -111,6 +111,7 @@ manage budgets, and create itineraries based on their preferences."""
         self,
         message: str,
         group_id: str,
+        user_id: str,
         user_preferences: Optional[Dict[str, Any]] = None,
         chat_history: Optional[List[Dict[str, Any]]] = None,
         stream: bool = False
@@ -121,6 +122,7 @@ manage budgets, and create itineraries based on their preferences."""
         Args:
             message: The user's message
             group_id: ID of the group chat
+            user_id: ID of the user sending the message
             user_preferences: Optional dict of user preferences
             chat_history: Optional list of previous messages
             stream: Whether to stream the response
@@ -132,6 +134,7 @@ manage budgets, and create itineraries based on their preferences."""
         full_input = self._build_input(
             message=message,
             group_id=group_id,
+            user_id=user_id,
             user_preferences=user_preferences,
             chat_history=chat_history
         )
@@ -154,6 +157,7 @@ manage budgets, and create itineraries based on their preferences."""
             "cards": cards,
             "interactive_elements": [],
             "metadata": {
+                "user_id": user_id,
                 "tool_calls_count": len(result.tool_calls) if hasattr(result, 'tool_calls') else 0
             }
         }
@@ -194,6 +198,7 @@ manage budgets, and create itineraries based on their preferences."""
         self,
         message: str,
         group_id: str,
+        user_id: str,
         user_preferences: Optional[Dict[str, Any]] = None,
         chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> str:
@@ -205,6 +210,7 @@ manage budgets, and create itineraries based on their preferences."""
         parts.append("## Current Context:")
         parts.append(f"- CURRENT_DATE: {current_date.strftime('%Y-%m-%d')} ({current_date.strftime('%A, %B %d, %Y')})")
         parts.append(f"- CURRENT_TIME: {current_date.strftime('%H:%M:%S %Z')}")
+        parts.append(f"- USER_ID: {user_id}")
         parts.append(f"- GROUP_ID: {group_id}")
         parts.append("")
         
