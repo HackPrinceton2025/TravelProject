@@ -10,12 +10,13 @@ type AttractionCardProps = {
     place_id: string;
     description: string;
     total_ratings: number;
+    website?: string;
   };
 };
 
 export default function AttractionCard({ data }: AttractionCardProps) {
-  return (
-    <div className="w-[300px] flex-shrink-0 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md transition hover:shadow-lg mb-4">
+  const cardContent = (
+    <div className="w-[300px] h-[336px] flex-shrink-0 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-md transition hover:shadow-lg mb-4">
       {/* Image */}
       <div className="relative h-48 w-full overflow-hidden bg-gray-100">
         {data.image ? (
@@ -103,4 +104,20 @@ export default function AttractionCard({ data }: AttractionCardProps) {
       </div>
     </div>
   );
+
+  // If website URL exists, wrap in link
+  if (data.website) {
+    return (
+      <a
+        href={data.website}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+      >
+        {cardContent}
+      </a>
+    );
+  }
+
+  return cardContent;
 }
