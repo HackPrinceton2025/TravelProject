@@ -26,6 +26,7 @@ export default function GroupPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [groupInfo, setGroupInfo] = useState<{ name: string; invite_code: string } | null>(null);
   const [messages, setMessages] = useState<MessageBubble[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,26 @@ export default function GroupPage() {
   // Initial load + realtime subscription.
   useEffect(() => {
     if (!groupId || !authChecked || !userId) return;
+
+    const loadGroupInfo = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("groups")
+          .select("name, invite_code")
+          .eq("id", groupId)
+          .single();
+        if (!error && data) {
+          setGroupInfo({
+            name: data.name ?? "Group chat",
+            invite_code: data.invite_code ?? "",
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load group info", err);
+      }
+    };
+
+    loadGroupInfo();
 
     const loadMessages = async () => {
       try {
@@ -283,11 +304,13 @@ export default function GroupPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-400">
               TripSmith • Group
             </p>
-            <h1 className="text-3xl font-bold text-gray-900">Group chat</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {groupInfo?.name ?? "Group chat"}
+            </h1>
             <p className="text-sm text-gray-500">
               Invite code ·{" "}
               <span className="font-semibold tracking-wide text-blue-500">
-                {groupId || "loading"}
+                {groupInfo?.invite_code?.toUpperCase() || groupId || "loading"}
               </span>
             </p>
           </div>
@@ -302,7 +325,7 @@ export default function GroupPage() {
                 Group chat
               </p>
               <h2 className="text-xl font-semibold text-gray-900">
-                Your sunny planning space
+                Let's plan the trip!
               </h2>
             </div>
           </div>
