@@ -22,6 +22,7 @@ class HotelCardData(BaseModel):
     price_per_night: float
     currency: str = "USD"
     image_url: Optional[str] = None
+    website: Optional[str] = None  # Hotel website URL
     amenities: List[str] = []
     location: Optional[LocationData] = None
     description: Optional[str] = None
@@ -49,6 +50,7 @@ class RestaurantCardData(BaseModel):
     rating: Optional[float] = None
     price_range: Optional[str] = None  # "$", "$$", "$$$", "$$$$"
     image_url: Optional[str] = None
+    website: Optional[str] = None  # Restaurant website URL
     location: Optional[LocationData] = None
     description: Optional[str] = None
 
@@ -61,6 +63,7 @@ class AttractionCardData(BaseModel):
     price: Optional[float] = None
     currency: str = "USD"
     image_url: Optional[str] = None
+    website: Optional[str] = None  # Attraction website URL
     location: Optional[LocationData] = None
     description: Optional[str] = None
     opening_hours: Optional[str] = None

@@ -360,15 +360,21 @@ def search_restaurants(
             # If no price level, try to get more details
             price_info = None
             price_source = "API"
+            website_url = None
             
             if price_level > 0:
                 # Use standard price level
                 price_info = "$" * price_level
-            else:
-                # Try to get details for better price info
-                if place_id:
-                    details = client.get_place_details(place_id)
-                    
+            
+            # Always try to get details for website and better price info
+            if place_id:
+                details = client.get_place_details(place_id)
+                
+                # Get website URL
+                website_url = details.get("website")
+                
+                # Update price info if not set
+                if not price_info:
                     # Check if details have price_level
                     detail_price = details.get("price_level", 0)
                     if detail_price > 0:
@@ -397,6 +403,7 @@ def search_restaurants(
                     "price_level": price_info,
                     "price_source": price_source,  # Indicates where price info came from
                     "address": place.get("vicinity", "Address not available"),
+                    "website": website_url,  # Restaurant website URL
                     "image": photo_url,
                     "open_now": place.get("opening_hours", {}).get("open_now"),
                     "total_ratings": place.get("user_ratings_total", 0),
@@ -477,6 +484,13 @@ def search_attractions(
                 if photo_ref:
                     photo_url = client.get_photo_url(photo_ref)
             
+            # Get website from place details
+            place_id = place.get("place_id")
+            website_url = None
+            if place_id:
+                details = client.get_place_details(place_id)
+                website_url = details.get("website")
+            
             types = place.get("types", [])
             category_types = [t.replace("_", " ").title() for t in types if t not in ["tourist_attraction", "point_of_interest", "establishment"]]
             
@@ -489,6 +503,7 @@ def search_attractions(
                     "rating": place.get("rating", 0),
                     "description": place.get("vicinity", ""),
                     "address": place.get("vicinity", "Address not available"),
+                    "website": website_url,  # Attraction website URL
                     "image": photo_url,
                     "open_now": place.get("opening_hours", {}).get("open_now"),
                     "total_ratings": place.get("user_ratings_total", 0),
@@ -579,15 +594,21 @@ def search_hotels(
             # If no price level, try to get more details
             price_info = None
             price_source = "API"
+            website_url = None
             
             if price_level > 0:
                 # Use standard price level
                 price_info = "$" * price_level
-            else:
-                # Try to get details for better price info
-                if place_id:
-                    details = client.get_place_details(place_id)
-                    
+            
+            # Always try to get details for website and better price info
+            if place_id:
+                details = client.get_place_details(place_id)
+                
+                # Get website URL
+                website_url = details.get("website")
+                
+                # Update price info if not set
+                if not price_info:
                     # Check if details have price_level
                     detail_price = details.get("price_level", 0)
                     if detail_price > 0:
@@ -613,6 +634,7 @@ def search_hotels(
                     "price_source": price_source,
                     "price_unit": "per night",
                     "address": place.get("vicinity", "Address not available"),
+                    "website": website_url,  # Hotel website URL
                     "image": photo_url,
                     "total_ratings": place.get("user_ratings_total", 0),
                     "place_id": place.get("place_id"),
