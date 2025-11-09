@@ -14,7 +14,7 @@ app = FastAPI(
 # --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://travel-project-dun-seven.vercel.app"],  # In production, replace * with your frontend domain
+    allow_origins=["*"],  # In production, replace * with your frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
