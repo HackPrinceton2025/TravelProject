@@ -56,8 +56,8 @@ class TravelAgentRunner:
         self.tools = [
             calculate_budget,
             track_expense,
-            get_user_location,
-            get_group_members_locations,
+            #get_user_location,
+            #get_group_members_locations,
             get_user_preferences,
             get_all_group_preferences,
             update_user_preferences,
