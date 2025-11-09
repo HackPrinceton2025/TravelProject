@@ -12,6 +12,32 @@ export type GroupRecord = {
   created_at?: string;
 };
 
+export type GroupMemberRecord = {
+  group_id: string;
+  user_id: string;
+  user_name?: string;
+  user_email?: string;
+  joined_at?: string;
+};
+
+export type ExpenseParticipant = {
+  user_id: string;
+  share?: number;
+};
+
+export type ExpensePayload = {
+  group_id: string;
+  payer_id: string;
+  amount: number;
+  description?: string;
+  split_between: ExpenseParticipant[];
+};
+
+export type ExpenseResponse = {
+  message: string;
+  expense_id: string;
+};
+
 const handleResponse = async <T>(res: Response): Promise<T> => {
   if (res.ok) {
     return (await res.json()) as T;
@@ -56,4 +82,31 @@ export async function joinGroupByCode(inviteCode: string, userId: string) {
     method: "POST",
   });
   return handleResponse<JoinGroupResponse>(r);
+}
+
+export async function getGroupMembers(groupId: string) {
+  const r = await fetch(`${API_BASE}/api/group_members/${groupId}`, {
+    cache: "no-store",
+  });
+  return handleResponse<GroupMemberRecord[]>(r);
+}
+
+export async function createExpense(payload: ExpensePayload) {
+  const r = await fetch(`${API_BASE}/api/expenses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<ExpenseResponse>(r);
+}
+
+export async function getGroupBalances(groupId: string) {
+  const r = await fetch(`${API_BASE}/api/expenses/group/${groupId}/balances`, {
+    cache: "no-store",
+  });
+  return handleResponse<{
+    group_id: string;
+    balances: Record<string, number>;
+    settlements: { from: string; to: string; amount: string }[];
+  }>(r);
 }

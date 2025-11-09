@@ -254,10 +254,10 @@ def search_flights_booking(
             return {
                 "type": "error_result",
                 "cards": [{
-                    "type": "confirmation",
+                    "type": "generic",
                     "id": f"error_{uuid.uuid4().hex[:8]}",
                     "data": {
-                        "success": False,
+                        "title": "Flight search failed",
                         "message": f"Could not find origin airport: {origin}",
                         "error_type": "invalid_location"
                     }
@@ -274,10 +274,10 @@ def search_flights_booking(
             return {
                 "type": "error_result",
                 "cards": [{
-                    "type": "confirmation",
+                    "type": "generic",
                     "id": f"error_{uuid.uuid4().hex[:8]}",
                     "data": {
-                        "success": False,
+                        "title": "Flight search failed",
                         "message": f"Could not find destination airport: {destination}",
                         "error_type": "invalid_location"
                     }
@@ -338,6 +338,7 @@ def search_flights_booking(
             price_units = total.get("units", 0)
             price_nanos = total.get("nanos", 0)
             total_price = price_units + (price_nanos / 1_000_000_000)
+            price_per_person = round(total_price / passengers, 2) if passengers else round(total_price, 2)
             
             # Filter by price
             if max_price and total_price > max_price:
@@ -387,7 +388,7 @@ def search_flights_booking(
             
             # Calculate total duration (sum of all segment times)
             total_time_seconds = sum(seg.get("totalTime", 0) for seg in segments)
-            duration_hours = round(total_time_seconds / 3600, 1) if total_time_seconds else 0
+            duration_hours = round(total_time_seconds / 3600, 2) if total_time_seconds else 0
             
             # Count stops (number of legs - 1 for each segment)
             total_stops = 0
@@ -411,13 +412,16 @@ def search_flights_booking(
                     "destination": dest_code,
                     "departure_time": departure_time,
                     "arrival_time": arrival_time,
-                    "duration": duration_hours,
+                    "duration_hours": duration_hours,
+                    "price_per_person": price_per_person,
+                    "total_price": round(total_price, 2),
                     "price": round(total_price, 2),
                     "currency": total.get("currencyCode", "USD"),
                     "stops": total_stops,
                     "cabin_class": cabin_class_actual,
                     "departure_date": departure_date,
                     "return_date": return_date,
+                    "booking_link": "",
                     "booking_token": offer.get("token", "")
                 }
             })
@@ -437,14 +441,14 @@ def search_flights_booking(
         }
     
     except Exception as e:
-        # Return error as confirmation card
+        # Return error as generic card
         return {
             "type": "error_result",
             "cards": [{
-                "type": "confirmation",
+                "type": "generic",
                 "id": f"error_{uuid.uuid4().hex[:8]}",
                 "data": {
-                    "success": False,
+                    "title": "Flight search failed",
                     "message": f"Failed to search flights: {str(e)}",
                     "error_type": "api_error"
                 }

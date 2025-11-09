@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ChatMessage, fetchGroupMessages, sendGroupMessage, callAIAgent } from "../../lib/chat";
 import CardCarousel from "../../components/CardCarousel";
+import ExpenseModal, { ExpenseRecordedInfo } from "../../components/ExpenseModal";
+import BalancesWidget from "../../components/BalancesWidget";
 
 type MessageBubble = ChatMessage & {
   variant: "me" | "friend";
@@ -31,6 +33,7 @@ export default function GroupPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Ensure only authenticated users can access the chat.
@@ -236,8 +239,40 @@ export default function GroupPage() {
     }
   };
 
+  const handleExpenseRecorded = async (info: ExpenseRecordedInfo) => {
+    if (!groupId || !userId) return;
+    try {
+      const label = info.description && info.description.trim().length > 0 ? info.description.trim() : "Expense";
+      const messageText = `Expense recorded: ${label} — $${info.amount.toFixed(2)} (paid by ${info.payerLabel}).`;
+      const inserted = await sendGroupMessage({
+        groupId,
+        content: messageText,
+        senderId: userId,
+      });
+
+      if (inserted) {
+        setMessages((prev) =>
+          prev.some((existing) => existing.id === inserted.id)
+            ? prev
+            : [...prev, decorateMessage(inserted, userId, userName)],
+        );
+      }
+    } catch (err) {
+      console.error("Failed to log expense message", err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
+      {showExpenseModal && userId && (
+        <ExpenseModal
+          groupId={groupId}
+          currentUserId={userId}
+          currentUserName={userName}
+          onClose={() => setShowExpenseModal(false)}
+          onExpenseRecorded={handleExpenseRecorded}
+        />
+      )}
       <header className="border-b border-white/60 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <div>
@@ -265,6 +300,15 @@ export default function GroupPage() {
               <h2 className="text-xl font-semibold text-gray-900">
                 Your sunny planning space
               </h2>
+            </div>
+            <div className="flex items-center gap-3">
+              {userId && <BalancesWidget groupId={groupId} currentUserId={userId} />}
+              <button
+                onClick={() => setShowExpenseModal(true)}
+                className="rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50"
+              >
+                + Add expense
+              </button>
             </div>
           </div>
 
