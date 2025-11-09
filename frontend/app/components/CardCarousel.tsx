@@ -2,6 +2,8 @@
 
 import { useRef } from "react";
 import RestaurantCard from "./RestaurantCard";
+import FlightCard from "./FlightCard";
+import AttractionCard from "./AttractionCard";
 
 type Card = {
   type: string;
@@ -63,6 +65,12 @@ export default function CardCarousel({ cards }: CardCarouselProps) {
         {cards.map((card) => {
           if (card.type === "restaurant") {
             return <RestaurantCard key={card.id} data={card.data} />;
+          }
+          if (card.type === "flight") {
+            return <FlightCard key={card.id} id={card.id} data={card.data} />;
+          }
+          if (card.type === "attraction") {
+            return <AttractionCard key={card.id} data={card.data} />;
           }
           // Add more card types here in the future
           return null;
