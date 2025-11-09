@@ -3,20 +3,19 @@ import Image from "next/image";
 type FlightCardProps = {
   id: string;
   data: {
-    price: number;
     stops: number;
     origin: string;
     airline: string;
     currency: string;
-    duration: number;
     cabin_class: string;
     destination: string;
     airline_logo: string;
     arrival_time: string;
-    booking_token: string;
+    booking_link?: string;
     flight_number: string;
-    departure_date: string;
     departure_time: string;
+    duration_hours: number;
+    price_per_person?: number;
   };
 };
 
@@ -68,7 +67,7 @@ export default function FlightCard({ id, data }: FlightCardProps) {
         </div>
         <div className="text-right">
           <p className="text-lg font-bold text-blue-600">
-            {data.currency} {data.price.toFixed(2)}
+            {data.currency} {data.price_per_person?.toFixed(2)}
           </p>
           <p className="text-xs text-gray-500">{data.cabin_class}</p>
         </div>
@@ -84,7 +83,7 @@ export default function FlightCard({ id, data }: FlightCardProps) {
               {formatTime(data.departure_time)}
             </p>
             <p className="text-xs text-gray-500">
-              {formatDate(data.departure_date)}
+              {formatDate(data.departure_time)}
             </p>
           </div>
 
@@ -103,7 +102,7 @@ export default function FlightCard({ id, data }: FlightCardProps) {
               </div>
             </div>
             <p className="mt-1 text-center text-xs text-gray-500">
-              {formatDuration(data.duration)}
+              {formatDuration(data.duration_hours)}
             </p>
             <p className="text-center text-xs font-medium text-gray-600">
               {data.stops === 0 ? "Direct" : `${data.stops} stop${data.stops > 1 ? "s" : ""}`}
