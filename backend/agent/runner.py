@@ -34,7 +34,7 @@ from agent.tools.google_maps import (
     search_transportation
 )
 # Kiwi.com flights via RapidAPI
-from agent.tools.kiwi_flights import search_flights_kiwi
+#from agent.tools.kiwi_flights import search_flights_kiwi
 # Booking.com API (Flights + Hotels with pricing)
 from agent.tools.rapidapi_search import (
     search_flights_booking,
@@ -71,11 +71,8 @@ class TravelAgentRunner:
             search_attractions,
             search_hotels,  # Google Places hotels (basic info)
             search_transportation,
-            # Kiwi.com Cheap Flights (primary flight search)
-            search_flights_kiwi,
-            # Booking.com API (with pricing) - fallback / comparison
-            #search_flights_booking,
-            #search_hotels_booking  # Booking.com hotels (with pricing)
+            # Booking.com flights
+            search_flights_booking,
         ]
         
         # MCP servers for travel planning
@@ -91,6 +88,7 @@ class TravelAgentRunner:
         
         # Load system prompt
         self.system_prompt = self._load_system_prompt()
+        self.domain_prompts = self._load_domain_prompts()
     
     def _load_system_prompt(self) -> str:
         """Load the system prompt from file"""
@@ -110,6 +108,17 @@ class TravelAgentRunner:
         return """You are a helpful travel planning assistant for group trips.
 You help groups coordinate travel plans, find accommodations, search flights,
 manage budgets, and create itineraries based on their preferences."""
+    
+    def _load_domain_prompts(self) -> Dict[str, str]:
+        """Load domain-specific prompts (flight, hotel, etc.)"""
+        prompts_dir = Path(__file__).parent / "prompts"
+        domain_prompts: Dict[str, str] = {}
+        if prompts_dir.exists():
+            for path in sorted(prompts_dir.glob("domain_*.txt")):
+                key = path.stem.replace("domain_", "")
+                with open(path, 'r', encoding='utf-8') as f:
+                    domain_prompts[key] = f.read().strip()
+        return domain_prompts
     
     async def chat(
         self,
@@ -237,6 +246,14 @@ manage budgets, and create itineraries based on their preferences."""
         # Add current message
         parts.append("## Current Message:")
         parts.append(message)
+        
+        # Add domain playbooks for the LLM
+        if self.domain_prompts:
+            parts.append("## Domain Playbooks:")
+            for key, content in self.domain_prompts.items():
+                parts.append(f"### {key}")
+                parts.append(content)
+                parts.append("")
         
         return "\n".join(parts)
 
