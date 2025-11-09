@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ChatMessage, fetchGroupMessages, sendGroupMessage, callAIAgent } from "../../lib/chat";
-import CardCarousel from "../../components/CardCarousel";
 
 type MessageBubble = ChatMessage & {
   variant: "me" | "friend";
@@ -408,148 +407,126 @@ const fetchAndStoreSenderName = useCallback(
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
-      <header className="border-b border-white/60 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-400">
-              TripSmith • Group
-            </p>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {groupInfo?.name ?? "Group chat"}
-            </h1>
-            <p className="text-sm text-gray-500">
-              Invite code ·{" "}
-              <span className="font-semibold tracking-wide text-blue-500">
-                {groupInfo?.invite_code?.toUpperCase() || groupId || "loading"}
-              </span>
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4 py-10">
+      <div className="mx-auto flex w-full max-w-4xl flex-col overflow-hidden rounded-[32px] bg-white shadow-2xl">
+        <div
+          className="relative h-48 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80')",
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+          <div className="relative flex h-full items-end justify-between px-6 pb-6 text-white">
+            <div>
+              <p className="text-xs uppercase tracking-[0.4em] text-white/70">TripSmith</p>
+              <h1 className="text-4xl font-bold">{groupInfo?.name || "Cow"}</h1>
+              <p className="text-sm text-white/80">
+                Invite ·{" "}
+                <span className="font-semibold tracking-[0.3em]">
+                  {groupInfo?.invite_code?.toUpperCase() || groupId || "LOADING"}
+                </span>
+              </p>
+            </div>
+            {/* <div className="rounded-full bg-white/30 px-4 py-1 text-xs font-semibold backdrop-blur">
+              ✈️ {groupInfo?.name + " Gateway"}
+            </div> */}
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto flex max-w-5xl flex-col gap-5 px-4 py-8">
-        <div className="rounded-3xl bg-white/80 shadow-xl shadow-blue-100/60 ring-1 ring-blue-50">
-          <div className="flex items-center justify-between border-b border-blue-50 px-6 py-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-400">
-                Group chat
-              </p>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Let's plan the trip!
-              </h2>
-            </div>
-          </div>
-
-          <div
-            ref={scrollRef}
-            className="flex h-[60vh] flex-col gap-4 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-blue-100"
-          >
-            {loading ? (
-              <p className="text-sm text-gray-500">Loading messages…</p>
-            ) : (
-              <>
-                {messages.map((msg) => {
-                  const isAI = msg.sender_id === "00000000-0000-0000-0000-000000000000";
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col gap-3 ${
-                        msg.variant === "me" ? "items-end" : "items-start"
-                      }`}
-                    >
-                      {/* Show message bubble only if text exists or it's not an AI message */}
-                      {(msg.text || !isAI) && (
-                        <div
-                          className={`flex gap-3 items-start ${
-                            msg.variant === "me" ? "flex-row-reverse text-right" : "text-left"
-                          }`}
-                        >
-                          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl text-sm font-semibold text-white shadow ${
-                            isAI 
-                              ? "bg-gradient-to-br from-purple-500 to-purple-600 shadow-purple-200"
-                              : "bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-200"
-                          }`}>
-                            {msg.initials}
-                          </div>
-                          <div
-                            className={`max-w-md rounded-3xl border px-5 py-4 shadow transition text-left ${
-                              msg.variant === "me"
-                                ? "border-transparent bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-100"
-                                : isAI
-                                  ? "border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 text-slate-800"
-                                  : "border-blue-50 bg-white text-slate-800"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-4 text-xs font-semibold">
-                              <span className={
-                                msg.variant === "me" 
-                                  ? "text-white/80" 
-                                  : isAI 
-                                  ? "text-purple-600" 
-                                  : "text-blue-500"
-                              }>
-                                {msg.displayName}
-                              </span>
-                              <span className={msg.variant === "me" ? "text-white/70" : "text-gray-400"}>
-                                {msg.timestamp}
-                              </span>
-                            </div>
-                            <div className="mt-2 text-base leading-relaxed whitespace-pre-wrap">
-                              {msg.text}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {/* Render cards if present */}
-                      {msg.cards && msg.cards.length > 0 && (
-                        <div className="w-full max-w-4xl">
-                          <CardCarousel cards={msg.cards} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {aiLoading && (
-                  <div className="flex gap-3 text-left">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 text-sm font-semibold text-white shadow shadow-purple-200">
-                      AI
-                    </div>
-                    <div className="max-w-md rounded-3xl border border-purple-50 bg-white px-5 py-4 text-slate-800 shadow">
-                      <div className="flex items-center gap-2">
-                        <div className="flex gap-1">
-                          <div className="h-2 w-2 animate-bounce rounded-full bg-purple-500" style={{ animationDelay: "0ms" }}></div>
-                          <div className="h-2 w-2 animate-bounce rounded-full bg-purple-500" style={{ animationDelay: "150ms" }}></div>
-                          <div className="h-2 w-2 animate-bounce rounded-full bg-purple-500" style={{ animationDelay: "300ms" }}></div>
-                        </div>
+        <div
+          ref={scrollRef}
+          className="flex h-[60vh] flex-col gap-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-blue-50/60 px-6 py-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-blue-100"
+        >
+          {loading ? (
+            <p className="text-sm text-gray-500">Loading messages…</p>
+          ) : (
+            <>
+              {messages.map((msg) => {
+                const isAI = msg.sender_id === "00000000-0000-0000-0000-000000000000";
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-3 ${
+                      msg.variant === "me" ? "justify-end text-right" : "justify-start text-left"
+                    }`}
+                  >
+                    {msg.variant !== "me" && (
+                      <div
+                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                          isAI
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {isAI ? "AI" : msg.initials}
+                      </div>
+                    )}
+                    <div className="max-w-sm">
+                      <div
+                        className={`text-xs font-semibold ${
+                          msg.variant === "me"
+                            ? "text-blue-500"
+                            : isAI
+                              ? "text-purple-500"
+                              : "text-slate-600"
+                        }`}
+                      >
+                        {msg.variant === "me" ? "You" : msg.displayName}
+                      </div>
+                      <div
+                        className={`mt-1 rounded-3xl px-5 py-3 text-sm leading-relaxed ${
+                          msg.variant === "me"
+                            ? "bg-blue-500 text-white"
+                            : isAI
+                              ? "bg-purple-200 text-purple-900"
+                              : "bg-white text-slate-900 border border-slate-100"
+                        }`}
+                      >
+                        {msg.text}
                       </div>
                     </div>
+                    {msg.variant === "me" && (
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-600">
+                        {msg.initials}
+                      </div>
+                    )}
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                );
+              })}
+              {aiLoading && (
+                <div className="flex items-center gap-3 text-left">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-400 text-xs font-semibold text-white">
+                    AI
+                  </div>
+                  <div className="rounded-3xl bg-purple-100 px-5 py-3 text-sm text-purple-900">
+                    Our guide is thinking...
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
-          <div className="flex flex-col gap-3 border-t border-blue-50 px-6 py-5 sm:flex-row">
-            <div className="flex-1">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Share an update or plan your next step… (Tip: Start with @ai to ask AI agent)"
-                className="w-full rounded-full border border-blue-100 bg-white px-5 py-3 text-sm text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-blue-400 focus:outline-none"
-              />
-            </div>
+        <div className="border-t border-slate-100 bg-white px-6 py-4">
+          <div className="flex gap-3">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="Share plans or type @ai for help..."
+              className="flex-1 rounded-full border border-slate-200 px-5 py-3 text-sm focus:border-blue-400 focus:outline-none"
+            />
             <button
               onClick={handleSend}
               disabled={sending || aiLoading}
-              className="rounded-full bg-gradient-to-r from-orange-400 via-pink-400 to-purple-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-200 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-blue-500 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {sending ? "Sending…" : aiLoading ? "AI Loading..." : "Send"}
+              {sending ? "Sending…" : aiLoading ? "AI…" : "Send"}
             </button>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

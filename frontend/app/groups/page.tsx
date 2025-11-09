@@ -364,7 +364,7 @@ export default function GroupsLanding() {
               {[
                 {
                   title: "Invite safely",
-                  body: "Owners approve join requests so only the right people enter the chat.",
+                  body: "Only people with the invite code can join the group.",
                 },
                 {
                   title: "Summon AI",
