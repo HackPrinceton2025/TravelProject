@@ -15,6 +15,12 @@ type MessageInsert = {
   content: string;
 };
 
+export type AgentResponse = {
+  message: string;
+  cards?: any[];
+  interactive_elements?: any[];
+};
+
 export async function fetchGroupMessages(groupId: string) {
   const res = await fetch(`${API_BASE}/api/messages?group_id=${groupId}`, {
     cache: "no-store",
@@ -46,4 +52,35 @@ export async function sendGroupMessage({
     throw new Error(text || "Failed to send message");
   }
   return (await res.json()) as ChatMessage;
+}
+
+export async function callAIAgent({
+  message,
+  userId,
+  groupId,
+  //chatHistory,
+}: {
+  message: string;
+  userId: string;
+  groupId: string;
+  //chatHistory?: Array<{ role: string; content: string }>;
+}): Promise<AgentResponse> {
+  const res = await fetch(`${API_BASE}/api/agent/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      user_id: userId,
+      group_id: groupId,
+      // chat_history: chatHistory,
+      stream: false,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Failed to call AI agent");
+  }
+
+  return (await res.json()) as AgentResponse;
 }
