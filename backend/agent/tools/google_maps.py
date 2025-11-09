@@ -346,7 +346,7 @@ def search_restaurants(
             results = [r for r in results if r.get("price_level", 1) <= max_price_level]
         
         # Limit results to 7
-        results = results[:7]
+        results = results[:5]
         
         # Helper function to fetch place details (website and price info)
         def fetch_place_details(place: Dict[str, Any]) -> tuple[str, Optional[str], Optional[str], str]:
@@ -509,7 +509,7 @@ def search_attractions(
         results = search_result.get("results", [])
         
         # Limit results to 7
-        results = results[:7]
+        results = results[:5]
         
         # Helper function to fetch website for a single place
         def fetch_place_website(place_id: str) -> tuple[str, Optional[str]]:
@@ -640,7 +640,7 @@ def search_hotels(
             results = [r for r in results if r.get("price_level", 1) <= max_price_level]
         
         # Limit results to 7
-        results = results[:7]
+        results = results[:5]
         
         # Helper function to fetch place details (website and price info)
         def fetch_hotel_details(place: Dict[str, Any]) -> tuple[str, Optional[str], Optional[str], str]:

@@ -56,8 +56,8 @@ class TravelAgentRunner:
         self.tools = [
             calculate_budget,
             track_expense,
-            get_user_location,
-            get_group_members_locations,
+            #get_user_location,
+            #get_group_members_locations,
             get_user_preferences,
             get_all_group_preferences,
             update_user_preferences,
@@ -89,7 +89,7 @@ class TravelAgentRunner:
         
         # Load system prompt
         self.system_prompt = self._load_system_prompt()
-        self.domain_prompts = self._load_domain_prompts()
+        #self.domain_prompts = self._load_domain_prompts()
     
     def _load_system_prompt(self) -> str:
         """Load the system prompt from file"""
@@ -110,16 +110,16 @@ class TravelAgentRunner:
 You help groups coordinate travel plans, find accommodations, search flights,
 manage budgets, and create itineraries based on their preferences."""
     
-    def _load_domain_prompts(self) -> Dict[str, str]:
-        """Load domain-specific prompts (flight, hotel, etc.)"""
-        prompts_dir = Path(__file__).parent / "prompts"
-        domain_prompts: Dict[str, str] = {}
-        if prompts_dir.exists():
-            for path in sorted(prompts_dir.glob("domain_*.txt")):
-                key = path.stem.replace("domain_", "")
-                with open(path, 'r', encoding='utf-8') as f:
-                    domain_prompts[key] = f.read().strip()
-        return domain_prompts
+    # def _load_domain_prompts(self) -> Dict[str, str]:
+    #     """Load domain-specific prompts (flight, hotel, etc.)"""
+    #     prompts_dir = Path(__file__).parent / "prompts"
+    #     domain_prompts: Dict[str, str] = {}
+    #     if prompts_dir.exists():
+    #         for path in sorted(prompts_dir.glob("domain_*.txt")):
+    #             key = path.stem.replace("domain_", "")
+    #             with open(path, 'r', encoding='utf-8') as f:
+    #                 domain_prompts[key] = f.read().strip()
+    #     return domain_prompts
     
     async def chat(
         self,
@@ -248,13 +248,13 @@ manage budgets, and create itineraries based on their preferences."""
         parts.append("## Current Message:")
         parts.append(message)
         
-        # Add domain playbooks for the LLM
-        if self.domain_prompts:
-            parts.append("## Domain Playbooks:")
-            for key, content in self.domain_prompts.items():
-                parts.append(f"### {key}")
-                parts.append(content)
-                parts.append("")
+        # # Add domain playbooks for the LLM
+        # if self.domain_prompts:
+        #     parts.append("## Domain Playbooks:")
+        #     for key, content in self.domain_prompts.items():
+        #         parts.append(f"### {key}")
+        #         parts.append(content)
+        #         parts.append("")
         
         return "\n".join(parts)
 
