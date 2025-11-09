@@ -33,6 +33,8 @@ from agent.tools.google_maps import (
     search_hotels,
     search_transportation
 )
+# Kiwi.com flights via RapidAPI
+from agent.tools.kiwi_flights import search_flights_kiwi
 # Booking.com API (Flights + Hotels with pricing)
 from agent.tools.rapidapi_search import (
     search_flights_booking,
@@ -69,8 +71,10 @@ class TravelAgentRunner:
             search_attractions,
             search_hotels,  # Google Places hotels (basic info)
             search_transportation,
-            # Booking.com API (with pricing)
-            search_flights_booking,
+            # Kiwi.com Cheap Flights (primary flight search)
+            search_flights_kiwi,
+            # Booking.com API (with pricing) - fallback / comparison
+            #search_flights_booking,
             #search_hotels_booking  # Booking.com hotels (with pricing)
         ]
         
