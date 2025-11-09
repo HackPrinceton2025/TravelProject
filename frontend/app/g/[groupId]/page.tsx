@@ -84,11 +84,7 @@ export default function GroupPage() {
         (payload) => {
           const newMessage = payload.new as ChatMessage;
           
-          // Skip AI messages - they're added locally with cards
-          if (newMessage.sender_id === "00000000-0000-0000-0000-000000000000") {
-            return;
-          }
-          
+          // Add all messages including AI messages via realtime
           setMessages((prev) =>
             prev.some((existing) => existing.id === newMessage.id)
               ? prev
@@ -200,74 +196,39 @@ export default function GroupPage() {
           //console.log("  🎴 Cards Count:", cardsArray.length);
           //console.log("  🎴 Cards JSON Length:", JSON.stringify(cardsArray).length, "characters");
 
+          // Limit cards to maximum 5 items to prevent payload size issues
+          const limitedCards = cardsArray.slice(0, 5);
+          console.log(`🔢 Card count limited: ${cardsArray.length} → ${limitedCards.length}`);
+
           // Save AI's response to DB with separated fields
-          if (messageText || cardsArray.length > 0) {
+          if (messageText || limitedCards.length > 0) {
             const { sendAIMessage } = await import("../../lib/chat");
-            const aiMessage = await sendAIMessage({
+            await sendAIMessage({
               groupId,
               senderId: AI_AGENT_ID,
               content: messageText, // Plain text in content field
-              body: cardsArray.length > 0 ? cardsArray : null, // Cards array in body field
+              body: limitedCards.length > 0 ? limitedCards : null, // Cards array in body field (max 7)
             });
-
-            if (aiMessage) {
-              // Add to local state with proper formatting INCLUDING cards
-              const formattedMessage: MessageBubble = {
-                ...aiMessage,
-                variant: "friend",
-                initials: "AI",
-                displayName: "AI Travel Agent",
-                text: messageText,
-                timestamp: new Date(aiMessage.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                cards: cardsArray, // Cards for local display
-              };
-              
-              setMessages((prev) =>
-                prev.some((existing) => existing.id === formattedMessage.id)
-                  ? prev
-                  : [...prev, formattedMessage],
-              );
-            }
+            // Don't add to local state - let realtime subscription handle it
+            // This ensures all users see the message at the same time
           }
         } catch (err) {
           console.error("Failed to call AI agent", err);
           // Save error message to DB
           try {
-            const errorMessage = await sendGroupMessage({
+            await sendGroupMessage({
               groupId,
               content: "Sorry. There was an error calling AI agent.",
               senderId: AI_AGENT_ID,
             });
-
-            if (errorMessage) {
-              const formattedError: MessageBubble = {
-                ...errorMessage,
-                variant: "friend",
-                initials: "AI",
-                displayName: "AI Travel Agent",
-                text: "Sorry. There was an error calling AI agent.",
-                timestamp: new Date(errorMessage.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              };
-              
-              setMessages((prev) =>
-                prev.some((existing) => existing.id === formattedError.id)
-                  ? prev
-                  : [...prev, formattedError],
-              );
-            }
+            // Don't add to local state - let realtime subscription handle it
           } catch (dbErr) {
             console.error("Failed to save error message to DB", dbErr);
           }
         } finally {
           setAiLoading(false);
         }
-      }
+      } 
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
