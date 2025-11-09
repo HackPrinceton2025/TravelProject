@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 
 import requests  # type: ignore[import]
 
+from agent.tools.rapidapi_search import _get_airport_code
+
 RAPIDAPI_HOST = "kiwi-com-cheap-flights.p.rapidapi.com"
 RAPIDAPI_BASE_URL = f"https://{RAPIDAPI_HOST}"
 
@@ -27,7 +29,8 @@ def _format_location(value: str, default_prefix: str = "City") -> str:
     """Convert a user-friendly location string to Kiwi format.
 
     Kiwi accepts values like "City:london_gb" or "Airport:JFK". If the caller already supplies
-    a formatted value (contains ':'), we simply return it. Otherwise we try to infer the type.
+    a formatted value (contains ':'), we simply return it. Otherwise we try to infer an airport code
+    using the Booking.com helper (good enough for demo purposes).
     """
     if not value:
         raise ValueError("Location value cannot be empty")
@@ -40,6 +43,14 @@ def _format_location(value: str, default_prefix: str = "City") -> str:
     # If a 3-letter code is provided assume an airport code
     if len(value) == 3 and value.isalpha():
         return f"Airport:{value.upper()}"
+
+    # Try to map the free-form text to an airport code (fallback to City slug)
+    try:
+        iata = _get_airport_code(value)
+        if iata and len(iata) == 3:
+            return f"Airport:{iata.upper()}"
+    except Exception:
+        pass
 
     # Fallback: assume city name. Convert spaces to underscores and lowercase.
     slug = value.lower().replace(" ", "_")
@@ -196,6 +207,7 @@ def _parse_itinerary(itinerary: Dict[str, Any], currency: str) -> Optional[Dict[
                 "duration_hours": duration_hours,  # Match schema
                 "price_per_person": price_per_person,  # Match schema
                 "total_price": total_price,  # Match schema
+                "price": total_price,  # Backwards compatibility
                 "currency": display_currency.upper(),
                 "stops": total_stops,
                 "cabin_class": first_seg.get("cabin_class"),
@@ -340,10 +352,10 @@ def search_flights_kiwi(
         return {
             "type": "error_result",
             "cards": [{
-                "type": "confirmation",
+                "type": "generic",
                 "id": f"error_{uuid.uuid4().hex[:8]}",
                 "data": {
-                    "success": False,
+                    "title": "Flight search failed",
                     "message": f"Kiwi API request failed with status {status}",
                     "details": detail[:500],
                     "error_type": "api_error",
@@ -358,11 +370,11 @@ def search_flights_kiwi(
         return {
             "type": "error_result",
             "cards": [{
-                "type": "confirmation",
+                "type": "generic",
                 "id": f"error_{uuid.uuid4().hex[:8]}",
                 "data": {
-                    "success": False,
-                    "message": "Failed to search flights",
+                    "title": "Flight search failed",
+                    "message": "We hit an unexpected error while searching for flights.",
                     "details": str(exc),
                     "error_type": "internal_error",
                 }
