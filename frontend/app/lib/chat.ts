@@ -78,16 +78,16 @@ export async function sendAIMessage({
     body: body, // Cards in body field
   };
 
-  console.log("🚀 sendAIMessage payload:");
-  console.log("  📄 content length:", content.length, "characters");
-  console.log("  🎴 body (cards):", body);
-  console.log("  🎴 body type:", Array.isArray(body) ? "array" : typeof body);
+  // console.log("🚀 sendAIMessage payload:");
+  // console.log("  📄 content length:", content.length, "characters");
+  // console.log("  🎴 body (cards):", body);
+  // console.log("  🎴 body type:", Array.isArray(body) ? "array" : typeof body);
   if (body) {
     const bodyString = JSON.stringify(body);
-    console.log("  🎴 body JSON length:", bodyString.length, "characters");
-    console.log("  🎴 cards count:", Array.isArray(body) ? body.length : "N/A");
+    // console.log("  🎴 body JSON length:", bodyString.length, "characters");
+    // console.log("  🎴 cards count:", Array.isArray(body) ? body.length : "N/A");
   }
-  console.log("  📦 total payload size:", JSON.stringify(payload).length, "characters");
+  // console.log("  📦 total payload size:", JSON.stringify(payload).length, "characters");
 
   const res = await fetch(`${API_BASE}/api/messages`, {
     method: "POST",
