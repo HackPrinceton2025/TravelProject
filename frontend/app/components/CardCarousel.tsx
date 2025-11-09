@@ -33,7 +33,17 @@ export default function CardCarousel({ cards }: CardCarouselProps) {
     }
   };
 
-  if (!cards || cards.length === 0) return null;
+  // Filter out cards that don't match any known type
+  const validCards = cards.filter(card => 
+    card.type === "restaurant" || 
+    card.type === "flight" || 
+    card.type === "attraction" || 
+    card.type === "event" || 
+    card.type === "hotel"
+  );
+
+  // Don't render if no valid cards
+  if (!validCards || validCards.length === 0) return null;
 
   return (
     <div className="relative mt-3 w-full">
@@ -64,7 +74,7 @@ export default function CardCarousel({ cards }: CardCarouselProps) {
         className="flex gap-4 overflow-x-auto px-12 scrollbar-hide"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {cards.map((card, index) => {
+        {validCards.map((card, index) => {
           // Use index as fallback to ensure unique keys
           const uniqueKey = `${card.type}-${card.id}-${index}`;
           
@@ -83,7 +93,7 @@ export default function CardCarousel({ cards }: CardCarouselProps) {
           if (card.type === "hotel") {
             return <HotelCard key={uniqueKey} data={card.data} />;
           }
-          // Add more card types here in the future
+          // This should never happen due to filter above
           return null;
         })}
       </div>
