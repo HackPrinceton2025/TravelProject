@@ -23,20 +23,19 @@ Instructions
          "id": "...",
          "data": {
            "airline": "...",
+           "airline_logo": "...",
            "flight_number": "...",
            "origin": "...",
            "destination": "...",
            "departure_time": "...",
            "arrival_time": "...",
-           "duration_hours": ...,
-           "price_per_person": ...,
-           "total_price": ...,
+           "duration": ...,
+           "price": ...,
            "currency": "...",
            "stops": ...,
            "cabin_class": "...",
            "departure_date": "...",
            "return_date": "...",
-           "booking_link": "...",
            "booking_token": "..."
          }
        },

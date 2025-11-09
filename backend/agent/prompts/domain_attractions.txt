@@ -26,13 +26,17 @@ Instructions
            "name": "...",
            "category": "...",
            "rating": ...,
-           "price": ...,
-           "currency": "...",
            "description": "...",
            "address": "...",
-           "opening_hours": "...",
+           "website": "...",
            "image": "...",
-           "booking_link": "..."
+           "open_now": ...,
+           "total_ratings": ...,
+           "place_id": "...",
+           "location": {
+             "lat": ...,
+             "lng": ...
+           }
          }
        },
        ...

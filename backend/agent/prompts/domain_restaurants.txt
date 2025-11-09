@@ -27,11 +27,15 @@ Instructions
            "rating": ...,
            "price_level": "...",
            "address": "...",
+           "website": "...",
+           "image": "...",
            "open_now": ...,
            "total_ratings": ...,
-           "image": "...",
-           "booking_link": "...",
-           "dietary_options": [...]
+           "place_id": "...",
+           "location": {
+             "lat": ...,
+             "lng": ...
+           }
          }
        },
        ...

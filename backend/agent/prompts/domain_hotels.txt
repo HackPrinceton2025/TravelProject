@@ -25,17 +25,24 @@ Instructions
          "data": {
            "name": "...",
            "rating": ...,
-           "price_per_night": ...,
+           "price": "...",
+           "price_unit": "night",
            "total_price": ...,
            "currency": "...",
            "address": "...",
-           "amenities": [...],
+           "website": "...",
+           "image": "...",
            "check_in": "...",
            "check_out": "...",
-           "image": "...",
-           "booking_link": "...",
+           "nights": ...,
+           "hotel_id": "...",
+           "stars": ...,
+           "review_score": ...,
            "review_count": ...,
-           "stars": ...
+           "location": {
+             "lat": ...,
+             "lng": ...
+           }
          }
        },
        ...
