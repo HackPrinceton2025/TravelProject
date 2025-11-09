@@ -127,11 +127,11 @@ export default function HomePage() {
           </div>
 
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-2">
-            <div className="text-4xl mb-4">🗳️</div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-3">Vote & Decide</h3>
+            <div className="text-4xl mb-4">💰</div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-3">Expense Tracking</h3>
             <p className="text-gray-600">
-              Use polls and voting to reach group consensus on destinations, dates, and
-              activities.
+              Split costs and track group expenses effortlessly. Keep everyone on the same page
+              with transparent budget management.
             </p>
           </div>
         </div>

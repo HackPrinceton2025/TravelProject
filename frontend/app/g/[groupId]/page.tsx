@@ -396,9 +396,6 @@ export default function GroupPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-blue-400">
                 Group chat
               </p>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Your sunny planning space
-              </h2>
             </div>
             <div className="flex items-center gap-3">
               {userId && <BalancesWidget groupId={groupId} currentUserId={userId} />}

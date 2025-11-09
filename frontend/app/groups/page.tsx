@@ -85,7 +85,16 @@ export default function GroupsLanding() {
               (row.groups?.created_by === currentUserId ? "Owner" : "Member"),
           })) ?? [];
 
-        setMyGroups(mapped);
+        // Remove duplicates by group id
+        const uniqueGroups = mapped.reduce((acc: MyGroup[], current) => {
+          const exists = acc.find(item => item.id === current.id);
+          if (!exists) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+
+        setMyGroups(uniqueGroups);
       } catch (err: any) {
         console.error("Failed to load groups", err);
         setGroupsError(err?.message || "Failed to load groups");
@@ -364,15 +373,15 @@ export default function GroupsLanding() {
               {[
                 {
                   title: "Invite safely",
-                  body: "Owners approve join requests so only the right people enter the chat.",
+                  body: "Only people with the invite code can join the group.",
                 },
                 {
                   title: "Summon AI",
-                  body: "Type /ai or @TripSmith inside any chat to pull in routes, ideas, or splits.",
+                  body: "Type @ai inside any chat to pull in routes, ideas, or places.",
                 },
                 {
                   title: "Stay in sync",
-                  body: "All chats, polls, and budgets stay in one place for the whole crew.",
+                  body: "All chats, preferences, and budgets stay in one place for the whole crew.",
                 },
               ].map((tip) => (
                 <div
