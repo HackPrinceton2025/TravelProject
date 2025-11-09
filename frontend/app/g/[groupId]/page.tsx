@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ChatMessage, fetchGroupMessages, sendGroupMessage, callAIAgent } from "../../lib/chat";
+import { getPreferenceStatus, PreferenceStatus } from "../../lib/api";
 import CardCarousel from "../../components/CardCarousel";
 import ExpenseModal, { ExpenseRecordedInfo } from "../../components/ExpenseModal";
 import BalancesWidget from "../../components/BalancesWidget";
+import PreferenceOnboarding from "../../components/PreferenceOnboarding";
 
 type MessageBubble = ChatMessage & {
   variant: "me" | "friend";
@@ -34,6 +36,7 @@ export default function GroupPage() {
   const [sending, setSending] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [preferenceStatus, setPreferenceStatus] = useState<PreferenceStatus | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Ensure only authenticated users can access the chat.
@@ -56,6 +59,23 @@ export default function GroupPage() {
 
     getUser();
   }, [router]);
+
+  const loadPreferenceStatus = useCallback(async () => {
+    if (!groupId || !userId) return;
+    try {
+      const status = await getPreferenceStatus(groupId, userId);
+      setPreferenceStatus(status);
+    } catch (err) {
+      console.error("Failed to load preference status", err);
+    } finally {
+    }
+  }, [groupId, userId]);
+
+  useEffect(() => {
+    if (userId && groupId) {
+      loadPreferenceStatus();
+    }
+  }, [groupId, userId, loadPreferenceStatus]);
 
   // Initial load + realtime subscription.
   useEffect(() => {
@@ -262,6 +282,12 @@ export default function GroupPage() {
     }
   };
 
+  const needsPreferenceOnboarding =
+    !!preferenceStatus &&
+    (!preferenceStatus.has_interests ||
+      !preferenceStatus.has_budget ||
+      !preferenceStatus.has_departure_city);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
       {showExpenseModal && userId && (
@@ -291,6 +317,14 @@ export default function GroupPage() {
       </header>
 
       <main className="mx-auto flex max-w-5xl flex-col gap-5 px-4 py-8">
+        {userId && preferenceStatus && needsPreferenceOnboarding && (
+          <PreferenceOnboarding
+            groupId={groupId}
+            userId={userId}
+            status={preferenceStatus}
+            onUpdated={loadPreferenceStatus}
+          />
+        )}
         <div className="rounded-3xl bg-white/80 shadow-xl shadow-blue-100/60 ring-1 ring-blue-50">
           <div className="flex items-center justify-between border-b border-blue-50 px-6 py-4">
             <div>
