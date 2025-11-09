@@ -331,7 +331,7 @@ def search_flights_booking(
         
         # Convert to flight cards
         flight_cards = []
-        for offer in flight_offers[:7]:  # Limit to 7
+        for offer in flight_offers[:5]:  # Limit to 7
             # Get price from priceBreakdown
             price_breakdown = offer.get("priceBreakdown", {})
             total = price_breakdown.get("total", {})
@@ -533,7 +533,7 @@ def search_hotels_booking(
         hotel_ids_to_fetch = []
         hotel_objects = []
         
-        for hotel_obj in hotels[:7]:  # Limit to 7
+        for hotel_obj in hotels[:5]:  # Limit to 7
             hotel = hotel_obj.get("property", {})
             if not hotel:
                 continue
