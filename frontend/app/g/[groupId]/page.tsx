@@ -199,8 +199,8 @@ export default function GroupPage() {
           //console.log("  🎴 Cards Count:", cardsArray.length);
           //console.log("  🎴 Cards JSON Length:", JSON.stringify(cardsArray).length, "characters");
 
-          // Limit cards to maximum 5 items to prevent payload size issues
-          const limitedCards = cardsArray.slice(0, 5);
+          // Limit cards to maximum 7 items to prevent payload size issues
+          const limitedCards = cardsArray.slice(0, 7);
           console.log(`🔢 Card count limited: ${cardsArray.length} → ${limitedCards.length}`);
 
           // Save AI's response to DB with separated fields
