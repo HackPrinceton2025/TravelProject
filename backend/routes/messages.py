@@ -16,22 +16,7 @@ def get_messages(group_id: str):
 @router.post("/")
 def send_message(payload: MessageCreate):
     data = payload.dict()
-
-    # Optional hackathon guard: ensure sender is in the group
-    members = supabase.table("group_members") \
-        .select("user_id") \
-        .eq("group_id", data["group_id"]) \
-        .execute().data
-    if data["sender_id"] not in [m["user_id"] for m in members]:
-        raise HTTPException(status_code=403, detail="User not in group")
-
-    res = supabase.table("messages").insert({
-        "group_id": data["group_id"],
-        "sender_id": data["sender_id"],
-        "kind": data.get("kind", "text"),
-        "body": data["body"]
-    }).execute()
-
+    res = supabase.table("messages").insert(data).execute()
     if not res.data:
-        raise HTTPException(status_code=500, detail="Message not inserted")
+        raise HTTPException(status_code=400, detail="Insert failed")
     return res.data[0]

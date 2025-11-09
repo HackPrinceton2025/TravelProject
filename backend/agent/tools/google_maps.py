@@ -6,6 +6,7 @@ import requests
 from typing import Dict, Any, List, Optional
 import uuid
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class GoogleMapsClient:
@@ -344,44 +345,33 @@ def search_restaurants(
         if max_price_level:
             results = [r for r in results if r.get("price_level", 1) <= max_price_level]
         
-        # Convert to restaurant cards
-        restaurant_cards = []
-        for place in results[:15]:
-            photo_url = None
-            if place.get("photos"):
-                photo_ref = place["photos"][0].get("photo_reference")
-                if photo_ref:
-                    photo_url = client.get_photo_url(photo_ref)
-            
-            # Get price level from nearby search
-            price_level = place.get("price_level", 0)
+        # Limit results to 7
+        results = results[:7]
+        
+        # Helper function to fetch place details (website and price info)
+        def fetch_place_details(place: Dict[str, Any]) -> tuple[str, Optional[str], Optional[str], str]:
+            """Fetch details for a single place. Returns (place_id, website, price_info, price_source)"""
             place_id = place.get("place_id")
+            price_level = place.get("price_level", 0)
             
-            # If no price level, try to get more details
-            price_info = None
-            price_source = "API"
-            website_url = None
+            if not place_id:
+                price_info = "💬 Contact for pricing" if price_level == 0 else "$" * price_level
+                return (place_id, None, price_info, "API")
             
-            if price_level > 0:
-                # Use standard price level
-                price_info = "$" * price_level
-            
-            # Always try to get details for website and better price info
-            if place_id:
+            try:
                 details = client.get_place_details(place_id)
-                
-                # Get website URL
                 website_url = details.get("website")
                 
-                # Update price info if not set
-                if not price_info:
-                    # Check if details have price_level
+                # Determine price info
+                if price_level > 0:
+                    price_info = "$" * price_level
+                    price_source = "API"
+                else:
                     detail_price = details.get("price_level", 0)
                     if detail_price > 0:
                         price_info = "$" * detail_price
                         price_source = "Details API"
                     else:
-                        # Extract from reviews
                         reviews = details.get("reviews", [])
                         review_price = client.extract_price_from_reviews(reviews)
                         if review_price:
@@ -389,6 +379,49 @@ def search_restaurants(
                             price_source = "Reviews"
                         else:
                             price_info = "💬 Contact for pricing"
+                            price_source = "API"
+                
+                return (place_id, website_url, price_info, price_source)
+            except Exception:
+                price_info = "💬 Contact for pricing" if price_level == 0 else "$" * price_level
+                return (place_id, None, price_info, "API")
+        
+        # Fetch details in parallel using ThreadPoolExecutor
+        place_details_map = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_place = {
+                executor.submit(fetch_place_details, place): place 
+                for place in results
+            }
+            
+            for future in as_completed(future_to_place):
+                place = future_to_place[future]
+                try:
+                    place_id, website, price_info, price_source = future.result()
+                    if place_id:
+                        place_details_map[place_id] = {
+                            "website": website,
+                            "price_info": price_info,
+                            "price_source": price_source
+                        }
+                except Exception:
+                    pass
+        
+        # Convert to restaurant cards
+        restaurant_cards = []
+        for place in results:
+            photo_url = None
+            if place.get("photos"):
+                photo_ref = place["photos"][0].get("photo_reference")
+                if photo_ref:
+                    photo_url = client.get_photo_url(photo_ref)
+            
+            # Get details from parallel fetch results
+            place_id = place.get("place_id")
+            details = place_details_map.get(place_id, {})
+            website_url = details.get("website")
+            price_info = details.get("price_info", "💬 Contact for pricing")
+            price_source = details.get("price_source", "API")
             
             types = place.get("types", [])
             cuisine_types = [t.replace("_", " ").title() for t in types if t not in ["restaurant", "food", "point_of_interest", "establishment"]]
@@ -475,21 +508,49 @@ def search_attractions(
         
         results = search_result.get("results", [])
         
+        # Limit results to 7
+        results = results[:7]
+        
+        # Helper function to fetch website for a single place
+        def fetch_place_website(place_id: str) -> tuple[str, Optional[str]]:
+            """Fetch website for a single place. Returns (place_id, website)"""
+            try:
+                details = client.get_place_details(place_id)
+                website_url = details.get("website")
+                return (place_id, website_url)
+            except Exception:
+                return (place_id, None)
+        
+        # Collect place IDs for parallel fetching
+        place_ids = [place.get("place_id") for place in results if place.get("place_id")]
+        
+        # Fetch websites in parallel using ThreadPoolExecutor
+        website_map = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_place_id = {
+                executor.submit(fetch_place_website, place_id): place_id 
+                for place_id in place_ids
+            }
+            
+            for future in as_completed(future_to_place_id):
+                try:
+                    place_id, website = future.result()
+                    website_map[place_id] = website
+                except Exception:
+                    pass
+        
         # Convert to attraction cards
         attraction_cards = []
-        for place in results[:15]:
+        for place in results:
             photo_url = None
             if place.get("photos"):
                 photo_ref = place["photos"][0].get("photo_reference")
                 if photo_ref:
                     photo_url = client.get_photo_url(photo_ref)
             
-            # Get website from place details
+            # Get website from parallel fetch results
             place_id = place.get("place_id")
-            website_url = None
-            if place_id:
-                details = client.get_place_details(place_id)
-                website_url = details.get("website")
+            website_url = website_map.get(place_id)
             
             types = place.get("types", [])
             category_types = [t.replace("_", " ").title() for t in types if t not in ["tourist_attraction", "point_of_interest", "establishment"]]
@@ -578,44 +639,33 @@ def search_hotels(
         if max_price_level:
             results = [r for r in results if r.get("price_level", 1) <= max_price_level]
         
-        # Convert to hotel cards
-        hotel_cards = []
-        for place in results[:15]:
-            photo_url = None
-            if place.get("photos"):
-                photo_ref = place["photos"][0].get("photo_reference")
-                if photo_ref:
-                    photo_url = client.get_photo_url(photo_ref)
-            
-            # Get price level from nearby search
-            price_level = place.get("price_level", 0)
+        # Limit results to 7
+        results = results[:7]
+        
+        # Helper function to fetch place details (website and price info)
+        def fetch_hotel_details(place: Dict[str, Any]) -> tuple[str, Optional[str], Optional[str], str]:
+            """Fetch details for a single hotel. Returns (place_id, website, price_info, price_source)"""
             place_id = place.get("place_id")
+            price_level = place.get("price_level", 0)
             
-            # If no price level, try to get more details
-            price_info = None
-            price_source = "API"
-            website_url = None
+            if not place_id:
+                price_info = "🔍 Check website for rates" if price_level == 0 else "$" * price_level
+                return (place_id, None, price_info, "API")
             
-            if price_level > 0:
-                # Use standard price level
-                price_info = "$" * price_level
-            
-            # Always try to get details for website and better price info
-            if place_id:
+            try:
                 details = client.get_place_details(place_id)
-                
-                # Get website URL
                 website_url = details.get("website")
                 
-                # Update price info if not set
-                if not price_info:
-                    # Check if details have price_level
+                # Determine price info
+                if price_level > 0:
+                    price_info = "$" * price_level
+                    price_source = "API"
+                else:
                     detail_price = details.get("price_level", 0)
                     if detail_price > 0:
                         price_info = "$" * detail_price
                         price_source = "Details API"
                     else:
-                        # Extract from reviews
                         reviews = details.get("reviews", [])
                         review_price = client.extract_price_from_reviews(reviews)
                         if review_price:
@@ -623,6 +673,49 @@ def search_hotels(
                             price_source = "Reviews"
                         else:
                             price_info = "🔍 Check website for rates"
+                            price_source = "API"
+                
+                return (place_id, website_url, price_info, price_source)
+            except Exception:
+                price_info = "🔍 Check website for rates" if price_level == 0 else "$" * price_level
+                return (place_id, None, price_info, "API")
+        
+        # Fetch details in parallel using ThreadPoolExecutor
+        hotel_details_map = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_place = {
+                executor.submit(fetch_hotel_details, place): place 
+                for place in results
+            }
+            
+            for future in as_completed(future_to_place):
+                place = future_to_place[future]
+                try:
+                    place_id, website, price_info, price_source = future.result()
+                    if place_id:
+                        hotel_details_map[place_id] = {
+                            "website": website,
+                            "price_info": price_info,
+                            "price_source": price_source
+                        }
+                except Exception:
+                    pass
+        
+        # Convert to hotel cards
+        hotel_cards = []
+        for place in results:
+            photo_url = None
+            if place.get("photos"):
+                photo_ref = place["photos"][0].get("photo_reference")
+                if photo_ref:
+                    photo_url = client.get_photo_url(photo_ref)
+            
+            # Get details from parallel fetch results
+            place_id = place.get("place_id")
+            details = hotel_details_map.get(place_id, {})
+            website_url = details.get("website")
+            price_info = details.get("price_info", "🔍 Check website for rates")
+            price_source = details.get("price_source", "API")
             
             hotel_cards.append({
                 "type": "hotel",

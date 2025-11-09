@@ -30,7 +30,7 @@ from agent.tools.polls import (
 from agent.tools.google_maps import (
     search_restaurants,
     search_attractions,
-    search_hotels,
+    #search_hotels,
     search_transportation
 )
 # Kiwi.com flights via RapidAPI
@@ -38,7 +38,7 @@ from agent.tools.google_maps import (
 # Booking.com API (Flights + Hotels with pricing)
 from agent.tools.rapidapi_search import (
     search_flights_booking,
-    #search_hotels_booking
+    search_hotels_booking
 )
 
 
@@ -69,17 +69,18 @@ class TravelAgentRunner:
             # Google Maps API
             search_restaurants,
             search_attractions,
-            search_hotels,  # Google Places hotels (basic info)
+            #search_hotels,  # Google Places hotels (basic info)
             search_transportation,
             # Booking.com flights
             search_flights_booking,
+            search_hotels_booking  # Booking.com hotels (with pricing)
         ]
         
         # MCP servers for travel planning
         self.mcp_servers = [
             #"windsor/foursquare-places-mcp", # Search for places and place recommendations.
             "tsion/brave-search-mcp",        # Web search and local search with Brave.
-            # "windsor/ticketmaster-mcp",      # Discover events, venues, and attractions through the Ticketmaster API.
+            "windsor/ticketmaster-mcp",      # Discover events, venues, and attractions through the Ticketmaster API.
             "akakak/sonar",                  # Web searches using Perplexity's Sonar Pro.
         ]
         
