@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ChatMessage, fetchGroupMessages, sendGroupMessage, callAIAgent } from "../../lib/chat";
@@ -27,7 +27,9 @@ export default function GroupPage() {
   const [userName, setUserName] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [groupInfo, setGroupInfo] = useState<{ name: string; invite_code: string } | null>(null);
-  const [messages, setMessages] = useState<MessageBubble[]>([]);
+const [messages, setMessages] = useState<MessageBubble[]>([]);
+const [nameDirectory, setNameDirectory] = useState<Record<string, string>>({});
+const nameDirectoryRef = useRef<Record<string, string>>({});
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -35,8 +37,8 @@ export default function GroupPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Ensure only authenticated users can access the chat.
-  useEffect(() => {
-    const getUser = async () => {
+useEffect(() => {
+  const getUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -52,8 +54,85 @@ export default function GroupPage() {
       setAuthChecked(true);
     };
 
-    getUser();
-  }, [router]);
+  getUser();
+}, [router]);
+
+useEffect(() => {
+  if (userId && userName) {
+    setNameDirectory((prev) =>
+      prev[userId] ? prev : { ...prev, [userId]: userName },
+    );
+  }
+}, [userId, userName]);
+
+useEffect(() => {
+  nameDirectoryRef.current = nameDirectory;
+}, [nameDirectory]);
+
+const fetchSenderNames = useCallback(
+  async (msgs: ChatMessage[]): Promise<Record<string, string>> => {
+    const unknownIds = Array.from(
+      new Set(
+        msgs
+          .filter(
+            (msg) =>
+              msg.sender_id !== "00000000-0000-0000-0000-000000000000" &&
+              !nameDirectoryRef.current[msg.sender_id] &&
+              !msg.body?.sender_name,
+          )
+          .map((msg) => msg.sender_id),
+      ),
+    );
+    if (!unknownIds.length) return {};
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id,name,email")
+        .in("id", unknownIds);
+      if (error) {
+        console.error("Failed to fetch sender names", error);
+        return {};
+      }
+      const map: Record<string, string> = {};
+      data?.forEach((entry: any) => {
+        const label = entry.name || entry.email || "Tripmate";
+        if (label) {
+          map[entry.id] = label;
+        }
+      });
+      return map;
+    } catch (err) {
+      console.error("Failed to fetch sender names", err);
+      return {};
+    }
+  },
+  [],
+);
+
+const fetchAndStoreSenderName = useCallback(
+  async (senderId: string): Promise<string | undefined> => {
+    if (
+      senderId === "00000000-0000-0000-0000-000000000000" ||
+      nameDirectoryRef.current[senderId]
+    ) {
+      return nameDirectoryRef.current[senderId];
+    }
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("id,name,email")
+        .eq("id", senderId)
+        .single();
+      if (error || !data) return;
+      const label = data.name || data.email || "Tripmate";
+      setNameDirectory((prev) => ({ ...prev, [senderId]: label }));
+      return label;
+    } catch (err) {
+      console.error("Failed to fetch sender name", err);
+    }
+  },
+  [],
+);
 
   // Initial load + realtime subscription.
   useEffect(() => {
@@ -82,7 +161,19 @@ export default function GroupPage() {
     const loadMessages = async () => {
       try {
         const data = await fetchGroupMessages(groupId);
-        setMessages(data.map((msg) => decorateMessage(msg, userId, userName)));
+        const newNames = await fetchSenderNames(data);
+        const combinedNames =
+          Object.keys(newNames).length > 0
+            ? { ...nameDirectoryRef.current, ...newNames }
+            : nameDirectoryRef.current;
+        if (Object.keys(newNames).length) {
+          setNameDirectory(combinedNames);
+        }
+        setMessages(
+          data.map((msg) =>
+            decorateMessage(msg, userId, userName, combinedNames),
+          ),
+        );
       } catch (err) {
         console.error("Failed to fetch messages", err);
       } finally {
@@ -102,18 +193,31 @@ export default function GroupPage() {
           table: "messages",
           filter: `group_id=eq.${groupId}`,
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as ChatMessage;
           
           // Skip AI messages - they're added locally with cards
           if (newMessage.sender_id === "00000000-0000-0000-0000-000000000000") {
             return;
           }
+
+          const ensuredName = await fetchAndStoreSenderName(newMessage.sender_id);
+          const lookup = ensuredName
+            ? { ...nameDirectoryRef.current, [newMessage.sender_id]: ensuredName }
+            : nameDirectoryRef.current;
           
           setMessages((prev) =>
             prev.some((existing) => existing.id === newMessage.id)
               ? prev
-              : [...prev, decorateMessage(newMessage, userId, userName)],
+              : [
+                  ...prev,
+                  decorateMessage(
+                    newMessage,
+                    userId,
+                    userName,
+                    lookup,
+                  ),
+                ],
           );
         },
       )
@@ -122,7 +226,7 @@ export default function GroupPage() {
     return () => {
       channel.unsubscribe();
     };
-  }, [groupId, userId, userName, authChecked]);
+  }, [groupId, userId, userName, authChecked, fetchSenderNames, fetchAndStoreSenderName]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -146,6 +250,7 @@ export default function GroupPage() {
         groupId,
         content: trimmed,
         senderId: userId,
+        senderName: userName,
       });
       setInput("");
       
@@ -153,7 +258,13 @@ export default function GroupPage() {
         setMessages((prev) =>
           prev.some((existing) => existing.id === inserted.id)
             ? prev
-            : [...prev, decorateMessage(inserted, userId, userName)],
+            : [
+                ...prev,
+                decorateMessage(inserted, userId, userName, {
+                  ...nameDirectoryRef.current,
+                  [userId]: userName || "You",
+                }),
+              ],
         );
       }
 
@@ -447,6 +558,7 @@ function decorateMessage(
   message: ChatMessage,
   currentUserId: string | null,
   currentUserName: string | null,
+  nameDirectory: Record<string, string> = {},
 ): MessageBubble {
   const isAI = message.sender_id === "00000000-0000-0000-0000-000000000000";
   const isSelf = message.sender_id === currentUserId;
@@ -476,8 +588,14 @@ function decorateMessage(
     displayName = "AI Travel Agent";
     initials = "AI";
   } else {
-    const fallbackName = isSelf ? currentUserName || "You" : "Tripmate";
-    displayName = (message as any).sender_name || fallbackName;
+    const directoryName = nameDirectory[message.sender_id];
+    const bodyName =
+      typeof message.body === "object" && message.body !== null
+        ? message.body.sender_name || message.body.author || null
+        : null;
+    const fallbackName =
+      directoryName || (isSelf ? currentUserName || "You" : null) || currentUserName || "Tripmate";
+    displayName = bodyName || (message as any).sender_name || fallbackName;
     initials =
       displayName?.slice(0, 2).toUpperCase() ||
       message.sender_id.slice(0, 2).toUpperCase() ||

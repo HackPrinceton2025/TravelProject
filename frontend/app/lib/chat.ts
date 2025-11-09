@@ -14,6 +14,7 @@ type MessageInsert = {
   groupId: string;
   senderId: string;
   content: string;
+  senderName?: string | null;
 };
 
 export type AgentResponse = {
@@ -37,13 +38,17 @@ export async function sendGroupMessage({
   groupId,
   senderId,
   content,
+  senderName,
 }: MessageInsert) {
   const payload = {
     group_id: groupId,
     sender_id: senderId,
     kind: "text",
-    content: content, // Use content field for text
-    body: null, // No body for regular messages
+    content,
+    body: {
+      text: content,
+      sender_name: senderName ?? "",
+    },
   };
   
   const res = await fetch(`${API_BASE}/api/messages`, {
@@ -77,8 +82,12 @@ export async function sendAIMessage({
       group_id: groupId,
       sender_id: senderId,
       kind: "ai-response",
-      content: content, // Text in content field
-      body: body, // Cards in body field
+      content,
+      body: {
+        ...(body ?? {}),
+        text: content,
+        sender_name: "TripSmith AI",
+      },
     }),
   });
   if (!res.ok) {
