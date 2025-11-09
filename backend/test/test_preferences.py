@@ -57,7 +57,8 @@ async def test_get_all_group_preferences():
     
     result = await agent.chat(
         message=message,
-        group_id="test_group_123",
+        user_id="06f5a1b5-5339-4368-8781-9baeaa4c9ba1",
+        group_id="d1624f51-79d8-403f-ba0a-419f2bdd7b84",
         stream=False
     )
     
@@ -241,8 +242,8 @@ async def main():
     print("\n⚙️  Starting Preferences Tool Tests\n")
     
     #await test_get_user_preferences()
-    #await test_get_all_group_preferences()
-    await test_update_preferences_with_custom()
+    await test_get_all_group_preferences()
+    #await test_update_preferences_with_custom()
     #await test_update_custom_fields()
     #await test_preference_schema()
     

@@ -179,7 +179,7 @@ def get_all_group_preferences(group_id: str) -> Dict[str, Any]:
     try:
         # Fetch all preferences for this group from Supabase
         response = supabase.table("user_preferences")\
-            .select("*, users(id, name)")\
+            .select("*")\
             .eq("group_id", group_id)\
             .execute()
         
@@ -207,10 +207,6 @@ def get_all_group_preferences(group_id: str) -> Dict[str, Any]:
         members_preferences = []
         for row in response.data:
             pref_data = dict(row)
-            # Add user name from joined users table if available
-            if "users" in pref_data and pref_data["users"]:
-                pref_data["user_name"] = pref_data["users"].get("name", "Unknown")
-                del pref_data["users"]  # Remove nested object
             members_preferences.append(pref_data)
         
         # Create a card for each member's preferences
@@ -222,21 +218,26 @@ def get_all_group_preferences(group_id: str) -> Dict[str, Any]:
                 "data": prefs
             })
         
-        # Also create a summary card with consensus data
         # Calculate consensus - only count predefined options, not custom ones
         all_interests = []
         all_dietary = []
         all_travel_pace = []
         
         for pref in members_preferences:
-            # Filter out custom items (with "Custom:" prefix) for consensus calculation
-            interests = [item for item in pref.get("interests", []) if not item.startswith("Custom:")]
-            dietary = [item for item in pref.get("dietary_restrictions", []) if not item.startswith("Custom:")]
-            travel_pace = pref.get("travel_pace", "")
+            # Safely get list fields with default empty list
+            interests = pref.get("interests", [])
+            if interests:
+                # Filter out custom items (with "Custom:" prefix) for consensus calculation
+                interests = [item for item in interests if not str(item).startswith("Custom:")]
+                all_interests.extend(interests)
             
-            all_interests.extend(interests)
-            all_dietary.extend(dietary)
-            if travel_pace and not travel_pace.startswith("Custom:"):
+            dietary = pref.get("dietary_restrictions", [])
+            if dietary:
+                dietary = [item for item in dietary if not str(item).startswith("Custom:")]
+                all_dietary.extend(dietary)
+            
+            travel_pace = pref.get("travel_pace", "")
+            if travel_pace and not str(travel_pace).startswith("Custom:"):
                 all_travel_pace.append(travel_pace)
         
         # Find common items (appear more than once)
@@ -249,21 +250,22 @@ def get_all_group_preferences(group_id: str) -> Dict[str, Any]:
         common_dietary = [item for item, count in dietary_counts.items() if count > 1]
         most_common_pace = travel_pace_counts.most_common(1)[0][0] if travel_pace_counts else "Moderate"
         
-        # Calculate budget range and dates if available
+        # Calculate budget range if available
         budget_range = {}
-        if members_preferences and any("budget_max" in p for p in members_preferences):
-            budgets = [p.get("budget_max", 0) for p in members_preferences if p.get("budget_max")]
-            if budgets:
-                budget_range = {
-                    "min": min(budgets),
-                    "max": max(budgets),
-                    "average": sum(budgets) / len(budgets)
-                }
+        budgets = [p.get("budget_max", 0) for p in members_preferences if p.get("budget_max")]
+        if budgets:
+            budget_range = {
+                "min": min(budgets),
+                "max": max(budgets),
+                "average": round(sum(budgets) / len(budgets), 2)
+            }
         
+        # Create summary card
         summary_card = {
-            "type": "group_consensus",
+            "type": "generic",
             "id": f"consensus_{uuid.uuid4().hex[:8]}",
             "data": {
+                "section": "group_consensus",
                 "group_id": group_id,
                 "total_members": len(members_preferences),
                 "budget_range": budget_range,
@@ -285,7 +287,10 @@ def get_all_group_preferences(group_id: str) -> Dict[str, Any]:
         }
     
     except Exception as e:
-        # Error querying database
+        # Error querying database - return detailed error for debugging
+        import traceback
+        error_detail = traceback.format_exc()
+        
         return {
             "type": "error_result",
             "cards": [
@@ -295,12 +300,14 @@ def get_all_group_preferences(group_id: str) -> Dict[str, Any]:
                     "data": {
                         "success": False,
                         "message": f"Failed to fetch group preferences: {str(e)}",
-                        "error_type": "database_error"
+                        "error_type": "database_error",
+                        "error_detail": error_detail
                     }
                 }
             ],
             "metadata": {
-                "error": str(e)
+                "error": str(e),
+                "error_detail": error_detail
             }
         }
 
