@@ -6,7 +6,7 @@ import os
 from typing import List, Callable, Optional, Any, Dict
 
 from dedalus_labs import AsyncDedalus, DedalusRunner
-from dedalus_labs.utils.streaming import stream_async
+#from dedalus_labs.utils.streaming import stream_async
 from dotenv import load_dotenv
 
 # Load environment variables

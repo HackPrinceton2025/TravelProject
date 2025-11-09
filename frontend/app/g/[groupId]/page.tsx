@@ -349,9 +349,11 @@ export default function GroupPage() {
                     >
                       {/* Show message bubble only if text exists or it's not an AI message */}
                       {(msg.text || !isAI) && (
-                        <div className={`flex gap-3 ${
-                          msg.variant === "me" ? "flex-row-reverse text-right" : "text-left"
-                        }`}>
+                        <div
+                          className={`flex gap-3 items-start ${
+                            msg.variant === "me" ? "flex-row-reverse text-right" : "text-left"
+                          }`}
+                        >
                           <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl text-sm font-semibold text-white shadow ${
                             isAI 
                               ? "bg-gradient-to-br from-purple-500 to-purple-600 shadow-purple-200"
@@ -360,12 +362,12 @@ export default function GroupPage() {
                             {msg.initials}
                           </div>
                           <div
-                            className={`max-w-md rounded-3xl border px-5 py-4 shadow transition ${
+                            className={`max-w-md rounded-3xl border px-5 py-4 shadow transition text-left ${
                               msg.variant === "me"
                                 ? "border-transparent bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-100"
                                 : isAI
-                                ? "border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 text-slate-800"
-                                : "border-blue-50 bg-white text-slate-800"
+                                  ? "border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 text-slate-800"
+                                  : "border-blue-50 bg-white text-slate-800"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-4 text-xs font-semibold">
