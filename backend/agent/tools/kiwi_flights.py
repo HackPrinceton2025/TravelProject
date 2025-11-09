@@ -155,6 +155,13 @@ def _parse_itinerary(itinerary: Dict[str, Any], currency: str) -> Optional[Dict[
         total_segments = len(outbound_segments)
         total_stops = max(0, total_segments - 1)
 
+        # Calculate total duration in hours
+        total_duration_seconds = sum(seg.get("duration_seconds", 0) for seg in outbound_segments)
+        if inbound_segments:
+            total_duration_seconds += sum(seg.get("duration_seconds", 0) for seg in inbound_segments)
+        duration_hours = round(total_duration_seconds / 3600, 2) if total_duration_seconds else 0
+
+        # Get booking link
         booking_edges = itinerary.get("bookingOptions", {}).get("edges", [])
         booking_link = None
         if booking_edges:
@@ -162,26 +169,40 @@ def _parse_itinerary(itinerary: Dict[str, Any], currency: str) -> Optional[Dict[
             if url:
                 booking_link = f"https://www.kiwi.com{url}"
 
+        # Extract dates
+        departure_date = outbound_departure.split("T")[0] if outbound_departure else ""
+        return_date = None
+        if inbound_segments:
+            first_inbound = _first_segment(inbound_segments)
+            if first_inbound:
+                return_date = first_inbound["departure_time_local"].split("T")[0]
+
+        # Price per person (Kiwi returns total price, not per-person)
+        # For now, treat as total price
+        price_per_person = round(price_amount, 2)
+        total_price = round(price_amount, 2)
+
         return {
             "type": "flight",
             "id": f"flight_{uuid.uuid4().hex[:8]}",
             "data": {
                 "airline": main_carrier,
-                "airline_code": main_carrier_code,
+                "airline_logo": "",  # Kiwi doesn't provide logos
                 "flight_number": flight_number,
                 "origin": origin_airport,
                 "destination": destination_airport,
                 "departure_time": outbound_departure,
                 "arrival_time": outbound_arrival,
-                "price": round(price_amount, 2),
+                "duration_hours": duration_hours,  # Match schema
+                "price_per_person": price_per_person,  # Match schema
+                "total_price": total_price,  # Match schema
                 "currency": display_currency.upper(),
                 "stops": total_stops,
                 "cabin_class": first_seg.get("cabin_class"),
+                "departure_date": departure_date,
+                "return_date": return_date,
                 "booking_link": booking_link,
-                "legs": {
-                    "outbound": outbound_segments,
-                    "inbound": inbound_segments,
-                },
+                "booking_token": itinerary.get("id", ""),
             }
         }
     except Exception:
