@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import { createGroup, joinGroupByCode, GroupRecord } from "../lib/api";
 
 type BannerState = { tone: "success" | "error"; text: string } | null;
+type MyGroup = {
+  id: string;
+  name: string;
+  invite_code: string;
+  role: string;
+};
 
 export default function GroupsLanding() {
   const router = useRouter();
@@ -21,6 +27,9 @@ export default function GroupsLanding() {
   const [joining, setJoining] = useState(false);
 
   const [groupName, setGroupName] = useState("");
+  const [myGroups, setMyGroups] = useState<MyGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -41,6 +50,58 @@ export default function GroupsLanding() {
     fetchUser();
   }, [router]);
 
+  const loadMemberships = useCallback(
+    async (currentUserId: string) => {
+      setGroupsLoading(true);
+      setGroupsError(null);
+      try {
+        const { data, error } = await supabase
+          .from("group_members")
+          .select(
+            `
+            group_id,
+            role,
+            groups:groups (
+              id,
+              name,
+              invite_code,
+              created_by
+            )
+          `,
+          )
+          .eq("user_id", currentUserId);
+
+        if (error) {
+          throw error;
+        }
+
+        const mapped =
+          data?.map((row: any) => ({
+            id: row.groups?.id ?? row.group_id,
+            name: row.groups?.name ?? "Untitled trip",
+            invite_code: row.groups?.invite_code ?? "N/A",
+            role:
+              row.role ||
+              (row.groups?.created_by === currentUserId ? "Owner" : "Member"),
+          })) ?? [];
+
+        setMyGroups(mapped);
+      } catch (err: any) {
+        console.error("Failed to load groups", err);
+        setGroupsError(err?.message || "Failed to load groups");
+      } finally {
+        setGroupsLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (userId) {
+      loadMemberships(userId);
+    }
+  }, [userId, loadMemberships]);
+
   const handleCreateGroup = async () => {
     if (creating || !groupName.trim() || !userId) return;
     setCreating(true);
@@ -56,6 +117,7 @@ export default function GroupsLanding() {
         tone: "success",
         text: "Group created! Share this code with friends.",
       });
+      loadMemberships(userId);
     } catch (error: any) {
       setCreateBanner({
         tone: "error",
@@ -79,6 +141,7 @@ export default function GroupsLanding() {
         tone: "success",
         text: "You're in! Redirecting you to the chat…",
       });
+      loadMemberships(userId);
       setJoinCode("");
       setTimeout(() => {
         router.push(`/g/${res.group_id}`);
@@ -122,6 +185,73 @@ export default function GroupsLanding() {
       </header>
 
       <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-10">
+        <section className="rounded-3xl bg-white/90 p-6 shadow-lg shadow-blue-100/70 ring-1 ring-blue-50">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-blue-400">
+                My groups
+              </p>
+              <h2 className="text-2xl font-bold text-gray-900">Jump back into a chat</h2>
+            </div>
+            <button
+              onClick={() => userId && loadMemberships(userId)}
+              className="rounded-full border border-blue-100 px-4 py-2 text-xs font-semibold text-blue-600 shadow-sm hover:bg-blue-50 disabled:opacity-50"
+              disabled={!userId || groupsLoading}
+            >
+              Refresh
+            </button>
+          </div>
+          <div className="mt-6">
+            {groupsLoading ? (
+              <p className="text-sm text-gray-500">Loading your groups…</p>
+            ) : groupsError ? (
+              <p className="rounded-2xl border border-red-100 bg-red-50/80 px-4 py-3 text-sm text-red-600">
+                {groupsError}
+              </p>
+            ) : myGroups.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                You haven&apos;t joined any groups yet. Create one or enter a code below.
+              </p>
+            ) : (
+              <ul className="grid gap-4 md:grid-cols-2">
+                {myGroups.map((group) => (
+                  <li
+                    key={group.id}
+                    className="rounded-2xl border border-blue-50 bg-white/80 p-4 shadow-sm"
+                  >
+                    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-400">
+                      {group.role}
+                    </p>
+                    <h3 className="mt-1 text-lg font-semibold text-gray-900">{group.name}</h3>
+                    <p className="text-xs text-gray-500">
+                      Invite code •{" "}
+                      <span className="font-semibold tracking-[0.3em] text-blue-500">
+                        {group.invite_code.toUpperCase()}
+                      </span>
+                    </p>
+                    <div className="mt-3 flex gap-3">
+                      <button
+                        onClick={() => router.push(`/g/${group.id}`)}
+                        className="flex-1 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:scale-[1.01]"
+                      >
+                        Open chat
+                      </button>
+                      <button
+                        onClick={() =>
+                          navigator.clipboard?.writeText(group.invite_code).catch(() => {})
+                        }
+                        className="rounded-full border border-blue-100 px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                      >
+                        Copy code
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         <section className="grid gap-6 md:grid-cols-2">
           {/* Create Group Card */}
           <div className="rounded-3xl bg-white/90 p-6 shadow-xl shadow-blue-100/70 ring-1 ring-blue-50">
