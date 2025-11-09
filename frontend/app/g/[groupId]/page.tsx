@@ -20,6 +20,9 @@ export default function GroupPage() {
   const router = useRouter();
   const groupId = params?.groupId ?? "";
 
+  // Fixed UUID for AI agent (consistent across all groups)
+  const AI_AGENT_ID = "00000000-0000-0000-0000-000000000000";
+
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -80,6 +83,12 @@ export default function GroupPage() {
         },
         (payload) => {
           const newMessage = payload.new as ChatMessage;
+          
+          // Skip AI messages - they're added locally with cards
+          if (newMessage.sender_id === "00000000-0000-0000-0000-000000000000") {
+            return;
+          }
+          
           setMessages((prev) =>
             prev.some((existing) => existing.id === newMessage.id)
               ? prev
@@ -110,7 +119,7 @@ export default function GroupPage() {
       // Check if message starts with @ai
       const isAiMessage = trimmed.toLowerCase().startsWith("@ai");
       const messageContent = isAiMessage ? trimmed.slice(3).trim() : trimmed;
-
+      
       // Send user's message first
       const inserted = await sendGroupMessage({
         groupId,
@@ -131,63 +140,130 @@ export default function GroupPage() {
       if (isAiMessage && messageContent) {
         setAiLoading(true);
         try {
-          // Build chat history from recent messages (last 10)
-          // const chatHistory = messages.slice(-10).map((msg) => ({
-          //   role: msg.sender_id === "ai-agent" ? "assistant" : "user",
-          //   content: msg.text,
-          // }));
-          console.log(userId);
-          console.log(groupId)
           const agentResponse = await callAIAgent({
             message: messageContent,
             userId,
             groupId,
-            // chatHistory,
           });
 
-          // Add AI's response to local state only (not saving to DB)
-          if (agentResponse.message || agentResponse.cards) {
-            const aiMessage: MessageBubble = {
-              id: `ai-${Date.now()}`, // Temporary local ID
-              group_id: groupId,
-              sender_id: "ai-agent",
-              kind: "ai-response",
-              body: { text: agentResponse.message || "" },
-              created_at: new Date().toISOString(),
-              variant: "friend",
-              initials: "AI",
-              displayName: "AI Travel Agent",
-              text: agentResponse.message || "", // Empty string if only cards
-              timestamp: new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              cards: agentResponse.cards || [],
-            };
+          //console.log("🤖 Raw AI Response:", agentResponse);
+          //console.log("🤖 Raw AI Response type:", typeof agentResponse);
 
-            setMessages((prev) => [...prev, aiMessage]);
+          // STEP 1: agentResponse itself might be a string, parse it
+          let messageText = "";
+          let cardsArray: any[] = [];
+          
+          try {
+            let parsedData;
+            
+            // If agentResponse is a string, parse it first
+            if (typeof agentResponse === 'string') {
+              //console.log("📝 agentResponse is a string, parsing...");
+              parsedData = JSON.parse(agentResponse);
+            } else {
+              parsedData = agentResponse;
+            }
+            
+            //console.log("📦 Parsed Data:", parsedData);
+            
+            // STEP 2: parsedData.message is another JSON string, parse it again
+            if (typeof parsedData.message === 'string') {
+              try {
+                const innerData = JSON.parse(parsedData.message);
+                //console.log("🔄 Inner Data (parsed from message):", innerData);
+                
+                messageText = String(innerData.message || "");
+                cardsArray = Array.isArray(innerData.cards) ? innerData.cards : [];
+              } catch (innerParseError) {
+                //console.error("❌ Failed to parse inner message:", innerParseError);
+                // If inner parse fails, use message as-is
+                messageText = String(parsedData.message || "");
+                cardsArray = Array.isArray(parsedData.cards) ? parsedData.cards : [];
+              }
+            } else {
+              // Direct extraction
+              messageText = String(parsedData.message || "");
+              cardsArray = Array.isArray(parsedData.cards) ? parsedData.cards : [];
+            }
+            
+          } catch (parseError) {
+            console.error("❌ Failed to parse:", parseError);
+            // Fallback
+            messageText = "";
+            cardsArray = [];
+          }
+
+          //console.log("✅ Separated Data:");
+          //console.log("  📄 Message Text:", messageText);
+          //console.log("  📄 Text Length:", messageText.length, "characters");
+          //console.log("  🎴 Cards Array:", cardsArray);
+          //console.log("  🎴 Cards Count:", cardsArray.length);
+          //console.log("  🎴 Cards JSON Length:", JSON.stringify(cardsArray).length, "characters");
+
+          // Save AI's response to DB with separated fields
+          if (messageText || cardsArray.length > 0) {
+            const { sendAIMessage } = await import("../../lib/chat");
+            const aiMessage = await sendAIMessage({
+              groupId,
+              senderId: AI_AGENT_ID,
+              content: messageText, // Plain text in content field
+              body: cardsArray.length > 0 ? cardsArray : null, // Cards array in body field
+            });
+
+            if (aiMessage) {
+              // Add to local state with proper formatting INCLUDING cards
+              const formattedMessage: MessageBubble = {
+                ...aiMessage,
+                variant: "friend",
+                initials: "AI",
+                displayName: "AI Travel Agent",
+                text: messageText,
+                timestamp: new Date(aiMessage.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+                cards: cardsArray, // Cards for local display
+              };
+              
+              setMessages((prev) =>
+                prev.some((existing) => existing.id === formattedMessage.id)
+                  ? prev
+                  : [...prev, formattedMessage],
+              );
+            }
           }
         } catch (err) {
           console.error("Failed to call AI agent", err);
-          // Add error message to local state
-          const errorMessage: MessageBubble = {
-            id: `ai-error-${Date.now()}`,
-            group_id: groupId,
-            sender_id: "ai-agent",
-            kind: "ai-response",
-            body: { text: "Sorry. There was an error calling AI agent." },
-            created_at: new Date().toISOString(),
-            variant: "friend",
-            initials: "AI",
-            displayName: "AI Travel Agent",
-            text: "Sorry. There was an error calling AI agent.",
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          };
+          // Save error message to DB
+          try {
+            const errorMessage = await sendGroupMessage({
+              groupId,
+              content: "Sorry. There was an error calling AI agent.",
+              senderId: AI_AGENT_ID,
+            });
 
-          setMessages((prev) => [...prev, errorMessage]);
+            if (errorMessage) {
+              const formattedError: MessageBubble = {
+                ...errorMessage,
+                variant: "friend",
+                initials: "AI",
+                displayName: "AI Travel Agent",
+                text: "Sorry. There was an error calling AI agent.",
+                timestamp: new Date(errorMessage.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              };
+              
+              setMessages((prev) =>
+                prev.some((existing) => existing.id === formattedError.id)
+                  ? prev
+                  : [...prev, formattedError],
+              );
+            }
+          } catch (dbErr) {
+            console.error("Failed to save error message to DB", dbErr);
+          }
         } finally {
           setAiLoading(false);
         }
@@ -240,7 +316,7 @@ export default function GroupPage() {
             ) : (
               <>
                 {messages.map((msg) => {
-                  const isAI = msg.sender_id === "ai-agent";
+                  const isAI = msg.sender_id === "00000000-0000-0000-0000-000000000000";
                   return (
                     <div
                       key={msg.id}
@@ -347,9 +423,26 @@ function decorateMessage(
   currentUserId: string | null,
   currentUserName: string | null,
 ): MessageBubble {
-  const isAI = message.sender_id === "ai-agent";
+  const isAI = message.sender_id === "00000000-0000-0000-0000-000000000000";
   const isSelf = message.sender_id === currentUserId;
-  const text = extractText(message.body);
+  
+  // Extract text: prioritize content field (new schema)
+  let text = "";
+  if (message.content) {
+    text = message.content; // Use content field if available
+  } else if (message.body) {
+    text = extractText(message.body); // Fallback to body for old messages
+  }
+  
+  // Extract cards from body field (only for AI messages)
+  let cards: any[] = [];
+  if (isAI && message.body && typeof message.body === "object") {
+    if (Array.isArray(message.body)) {
+      cards = message.body; // body is directly the cards array
+    } else if (Array.isArray((message.body as any).cards)) {
+      cards = (message.body as any).cards; // body has a cards property
+    }
+  }
   
   let displayName: string;
   let initials: string;
@@ -372,6 +465,7 @@ function decorateMessage(
     initials,
     displayName,
     text,
+    cards,
     timestamp: new Date(message.created_at).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",

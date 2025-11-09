@@ -5,7 +5,8 @@ export type ChatMessage = {
   group_id: string;
   sender_id: string;
   kind: string | null;
-  body: { [key: string]: any } | null;
+  content: string | null; // New: plain text content
+  body: { [key: string]: any } | null; // JSONB for cards
   created_at: string;
 };
 
@@ -37,19 +38,52 @@ export async function sendGroupMessage({
   senderId,
   content,
 }: MessageInsert) {
+  const payload = {
+    group_id: groupId,
+    sender_id: senderId,
+    kind: "text",
+    content: content, // Use content field for text
+    body: null, // No body for regular messages
+  };
+  
+  const res = await fetch(`${API_BASE}/api/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Failed to send message");
+  }
+  const response = await res.json();
+  return response as ChatMessage;
+}
+
+export async function sendAIMessage({
+  groupId,
+  senderId,
+  content,
+  body,
+}: {
+  groupId: string;
+  senderId: string;
+  content: string; // Plain text message
+  body: { [key: string]: any } | null; // Cards data
+}) {
   const res = await fetch(`${API_BASE}/api/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       group_id: groupId,
       sender_id: senderId,
-      kind: "text",
-      body: { text: content },
+      kind: "ai-response",
+      content: content, // Text in content field
+      body: body, // Cards in body field
     }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || "Failed to send message");
+    throw new Error(text || "Failed to send AI message");
   }
   return (await res.json()) as ChatMessage;
 }

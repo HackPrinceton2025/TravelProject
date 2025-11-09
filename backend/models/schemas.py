@@ -174,7 +174,8 @@ class MessageCreate(BaseModel):
     group_id: str
     sender_id: str
     kind: Optional[str] = "text"
-    body: Any  # can hold {"text": "hello"} or more complex AI content
+    content: str  # can hold {"text": "hello"} or more complex AI content
+    body: Any
 
 # --- Expense Splitting ---
 
