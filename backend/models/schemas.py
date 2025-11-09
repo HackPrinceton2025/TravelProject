@@ -149,7 +149,7 @@ class AgentCard(BaseModel):
         "confirmation",
         "generic",
         "preferences_result",
-        "grou_preferences_result",
+        "group_preferences_result",
         "update_result",
         "user_preferences",
         "location"
