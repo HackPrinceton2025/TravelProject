@@ -37,6 +37,9 @@ export default function GroupPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [preferenceStatus, setPreferenceStatus] = useState<PreferenceStatus | null>(null);
+  const [groupName, setGroupName] = useState<string>("");
+  const [inviteCode, setInviteCode] = useState<string>("");
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Ensure only authenticated users can access the chat.
@@ -77,6 +80,66 @@ export default function GroupPage() {
     }
   }, [groupId, userId, loadPreferenceStatus]);
 
+  // Load group info from Supabase
+  useEffect(() => {
+    if (!groupId) return;
+    const loadGroupInfo = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("groups")
+          .select("name, invite_code")
+          .eq("id", groupId)
+          .single();
+        
+        if (error) throw error;
+        if (data) {
+          setGroupName(data.name);
+          setInviteCode(data.invite_code);
+        }
+      } catch (err) {
+        console.error("Failed to load group info", err);
+      }
+    };
+    loadGroupInfo();
+  }, [groupId]);
+
+  // Load user names from group members
+  useEffect(() => {
+    if (!groupId) return;
+    const loadUserNames = async () => {
+      try {
+        // Get all user IDs from group members
+        const { data: members, error: membersError } = await supabase
+          .from("group_members")
+          .select("user_id")
+          .eq("group_id", groupId);
+        
+        if (membersError) throw membersError;
+        if (!members || members.length === 0) return;
+
+        const userIds = members.map(m => m.user_id);
+        
+        // Get user names from users table
+        const { data: users, error: usersError } = await supabase
+          .from("users")
+          .select("id, name")
+          .in("id", userIds);
+        
+        if (usersError) throw usersError;
+        if (users) {
+          const nameMap: Record<string, string> = {};
+          users.forEach(u => {
+            nameMap[u.id] = u.name || u.id.slice(0, 8);
+          });
+          setUserNames(nameMap);
+        }
+      } catch (err) {
+        console.error("Failed to load user names", err);
+      }
+    };
+    loadUserNames();
+  }, [groupId]);
+
   // Initial load + realtime subscription.
   useEffect(() => {
     if (!groupId || !authChecked || !userId) return;
@@ -84,7 +147,7 @@ export default function GroupPage() {
     const loadMessages = async () => {
       try {
         const data = await fetchGroupMessages(groupId);
-        setMessages(data.map((msg) => decorateMessage(msg, userId, userName)));
+        setMessages(data.map((msg) => decorateMessage(msg, userId, userName, userNames)));
       } catch (err) {
         console.error("Failed to fetch messages", err);
       } finally {
@@ -111,7 +174,7 @@ export default function GroupPage() {
           setMessages((prev) =>
             prev.some((existing) => existing.id === newMessage.id)
               ? prev
-              : [...prev, decorateMessage(newMessage, userId, userName)],
+              : [...prev, decorateMessage(newMessage, userId, userName, userNames)],
           );
         },
       )
@@ -120,7 +183,7 @@ export default function GroupPage() {
     return () => {
       channel.unsubscribe();
     };
-  }, [groupId, userId, userName, authChecked]);
+  }, [groupId, userId, userName, authChecked, userNames]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -151,7 +214,7 @@ export default function GroupPage() {
         setMessages((prev) =>
           prev.some((existing) => existing.id === inserted.id)
             ? prev
-            : [...prev, decorateMessage(inserted, userId, userName)],
+            : [...prev, decorateMessage(inserted, userId, userName, userNames)],
         );
       }
 
@@ -274,7 +337,7 @@ export default function GroupPage() {
         setMessages((prev) =>
           prev.some((existing) => existing.id === inserted.id)
             ? prev
-            : [...prev, decorateMessage(inserted, userId, userName)],
+            : [...prev, decorateMessage(inserted, userId, userName, userNames)],
         );
       }
     } catch (err) {
@@ -305,11 +368,13 @@ export default function GroupPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-400">
               TripSmith • Group
             </p>
-            <h1 className="text-3xl font-bold text-gray-900">Group chat</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {groupName || "Group chat"}
+            </h1>
             <p className="text-sm text-gray-500">
               Invite code ·{" "}
               <span className="font-semibold tracking-wide text-blue-500">
-                {groupId || "loading"}
+                {inviteCode || groupId || "loading"}
               </span>
             </p>
           </div>
@@ -366,7 +431,7 @@ export default function GroupPage() {
                       {/* Show message bubble only if text exists or it's not an AI message */}
                       {(msg.text || !isAI) && (
                         <div className={`flex gap-3 ${
-                          msg.variant === "me" ? "flex-row-reverse text-right" : "text-left"
+                          msg.variant === "me" ? "flex-row-reverse" : ""
                         }`}>
                           <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl text-sm font-semibold text-white shadow ${
                             isAI 
@@ -398,7 +463,7 @@ export default function GroupPage() {
                                 {msg.timestamp}
                               </span>
                             </div>
-                            <div className="mt-2 text-base leading-relaxed whitespace-pre-wrap">
+                            <div className="mt-2 text-base text-left leading-relaxed whitespace-pre-wrap">
                               {msg.text}
                             </div>
                           </div>
@@ -461,6 +526,7 @@ function decorateMessage(
   message: ChatMessage,
   currentUserId: string | null,
   currentUserName: string | null,
+  userNames: Record<string, string> = {},
 ): MessageBubble {
   const isAI = message.sender_id === "00000000-0000-0000-0000-000000000000";
   const isSelf = message.sender_id === currentUserId;
@@ -490,8 +556,10 @@ function decorateMessage(
     displayName = "AI Travel Agent";
     initials = "AI";
   } else {
+    // Use userNames map to get actual user name
+    const actualName = userNames[message.sender_id];
     const fallbackName = isSelf ? currentUserName || "You" : "Tripmate";
-    displayName = (message as any).sender_name || fallbackName;
+    displayName = actualName || (message as any).sender_name || fallbackName;
     initials =
       displayName?.slice(0, 2).toUpperCase() ||
       message.sender_id.slice(0, 2).toUpperCase() ||
