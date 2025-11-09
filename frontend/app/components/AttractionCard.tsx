@@ -49,10 +49,6 @@ export default function AttractionCard({ data }: AttractionCardProps) {
             </svg>
           </div>
         )}
-        {/* Category Badge */}
-        <div className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 backdrop-blur-sm">
-          <p className="text-xs font-semibold text-blue-600">{data.category}</p>
-        </div>
       </div>
 
       {/* Content */}

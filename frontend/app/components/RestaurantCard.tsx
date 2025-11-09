@@ -11,6 +11,7 @@ type RestaurantData = {
   image?: string;
   open_now?: boolean;
   total_ratings?: number;
+  website?: string;
   location?: {
     lat: number;
     lng: number;
@@ -24,8 +25,18 @@ type RestaurantCardProps = {
 export default function RestaurantCard({ data }: RestaurantCardProps) {
   const [imageError, setImageError] = useState(false);
 
+  const CardWrapper = data.website ? "a" : "div";
+  const cardProps = data.website
+    ? { href: data.website, target: "_blank", rel: "noopener noreferrer" }
+    : {};
+
   return (
-    <div className="flex min-w-[300px] max-w-[300px] flex-col overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-lg transition hover:shadow-xl">
+    <CardWrapper
+      {...cardProps}
+      className={`flex min-w-[300px] max-w-[300px] flex-col overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-lg transition mb-4 ${
+        data.website ? "hover:shadow-xl cursor-pointer" : "hover:shadow-xl"
+      }`}
+    >
       {/* Restaurant Image */}
       <div className="relative h-40 w-full overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100">
         {data.image && !imageError ? (
@@ -50,20 +61,6 @@ export default function RestaurantCard({ data }: RestaurantCardProps) {
                 d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
               />
             </svg>
-          </div>
-        )}
-        {/* Status Badge */}
-        {data.open_now !== undefined && (
-          <div className="absolute right-2 top-2">
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                data.open_now
-                  ? "bg-green-500 text-white"
-                  : "bg-red-500 text-white"
-              }`}
-            >
-              {data.open_now ? "Open" : "Closed"}
-            </span>
           </div>
         )}
       </div>
@@ -128,6 +125,6 @@ export default function RestaurantCard({ data }: RestaurantCardProps) {
           <p className="text-sm text-gray-600">{data.address}</p>
         </div>
       </div>
-    </div>
+    </CardWrapper>
   );
 }
