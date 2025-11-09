@@ -4,6 +4,8 @@ import { useRef } from "react";
 import RestaurantCard from "./RestaurantCard";
 import FlightCard from "./FlightCard";
 import AttractionCard from "./AttractionCard";
+import EventCard from "./EventCard";
+import HotelCard from "./HotelCard";
 
 type Card = {
   type: string;
@@ -62,15 +64,24 @@ export default function CardCarousel({ cards }: CardCarouselProps) {
         className="flex gap-4 overflow-x-auto px-12 scrollbar-hide"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {cards.map((card) => {
+        {cards.map((card, index) => {
+          // Use index as fallback to ensure unique keys
+          const uniqueKey = `${card.type}-${card.id}-${index}`;
+          
           if (card.type === "restaurant") {
-            return <RestaurantCard key={card.id} data={card.data} />;
+            return <RestaurantCard key={uniqueKey} data={card.data} />;
           }
           if (card.type === "flight") {
-            return <FlightCard key={card.id} id={card.id} data={card.data} />;
+            return <FlightCard key={uniqueKey} id={card.id} data={card.data} />;
           }
           if (card.type === "attraction") {
-            return <AttractionCard key={card.id} data={card.data} />;
+            return <AttractionCard key={uniqueKey} data={card.data} />;
+          }
+          if (card.type === "event") {
+            return <EventCard key={uniqueKey} data={card.data} />;
+          }
+          if (card.type === "hotel") {
+            return <HotelCard key={uniqueKey} data={card.data} />;
           }
           // Add more card types here in the future
           return null;

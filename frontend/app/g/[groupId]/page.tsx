@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ChatMessage, fetchGroupMessages, sendGroupMessage, callAIAgent } from "../../lib/chat";
+import { getPreferenceStatus, PreferenceStatus } from "../../lib/api";
+import CardCarousel from "../../components/CardCarousel";
+import ExpenseModal, { ExpenseRecordedInfo } from "../../components/ExpenseModal";
+import BalancesWidget from "../../components/BalancesWidget";
+import PreferenceOnboarding from "../../components/PreferenceOnboarding";
 
 type MessageBubble = ChatMessage & {
   variant: "me" | "friend";
@@ -33,6 +38,8 @@ const nameDirectoryRef = useRef<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [preferenceStatus, setPreferenceStatus] = useState<PreferenceStatus | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Ensure only authenticated users can access the chat.
@@ -133,6 +140,23 @@ const fetchAndStoreSenderName = useCallback(
   [],
 );
 
+  const loadPreferenceStatus = useCallback(async () => {
+    if (!groupId || !userId) return;
+    try {
+      const status = await getPreferenceStatus(groupId, userId);
+      setPreferenceStatus(status);
+    } catch (err) {
+      console.error("Failed to load preference status", err);
+    } finally {
+    }
+  }, [groupId, userId]);
+
+  useEffect(() => {
+    if (userId && groupId) {
+      loadPreferenceStatus();
+    }
+  }, [groupId, userId, loadPreferenceStatus]);
+
   // Initial load + realtime subscription.
   useEffect(() => {
     if (!groupId || !authChecked || !userId) return;
@@ -205,6 +229,7 @@ const fetchAndStoreSenderName = useCallback(
             ? { ...nameDirectoryRef.current, [newMessage.sender_id]: ensuredName }
             : nameDirectoryRef.current;
           
+          // Add all messages including AI messages via realtime
           setMessages((prev) =>
             prev.some((existing) => existing.id === newMessage.id)
               ? prev
@@ -331,80 +356,74 @@ const fetchAndStoreSenderName = useCallback(
           //console.log("  🎴 Cards Count:", cardsArray.length);
           //console.log("  🎴 Cards JSON Length:", JSON.stringify(cardsArray).length, "characters");
 
+          // Limit cards to maximum 7 items to prevent payload size issues
+          const limitedCards = cardsArray.slice(0, 7);
+          console.log(`🔢 Card count limited: ${cardsArray.length} → ${limitedCards.length}`);
+
           // Save AI's response to DB with separated fields
-          if (messageText || cardsArray.length > 0) {
+          if (messageText || limitedCards.length > 0) {
             const { sendAIMessage } = await import("../../lib/chat");
-            const aiMessage = await sendAIMessage({
+            await sendAIMessage({
               groupId,
               senderId: AI_AGENT_ID,
               content: messageText, // Plain text in content field
-              body: cardsArray.length > 0 ? cardsArray : null, // Cards array in body field
+              body: limitedCards.length > 0 ? limitedCards : null, // Cards array in body field (max 7)
             });
-
-            if (aiMessage) {
-              // Add to local state with proper formatting INCLUDING cards
-              const formattedMessage: MessageBubble = {
-                ...aiMessage,
-                variant: "friend",
-                initials: "AI",
-                displayName: "AI Travel Agent",
-                text: messageText,
-                timestamp: new Date(aiMessage.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                cards: cardsArray, // Cards for local display
-              };
-              
-              setMessages((prev) =>
-                prev.some((existing) => existing.id === formattedMessage.id)
-                  ? prev
-                  : [...prev, formattedMessage],
-              );
-            }
+            // Don't add to local state - let realtime subscription handle it
+            // This ensures all users see the message at the same time
           }
         } catch (err) {
           console.error("Failed to call AI agent", err);
           // Save error message to DB
           try {
-            const errorMessage = await sendGroupMessage({
+            await sendGroupMessage({
               groupId,
               content: "Sorry. There was an error calling AI agent.",
               senderId: AI_AGENT_ID,
             });
-
-            if (errorMessage) {
-              const formattedError: MessageBubble = {
-                ...errorMessage,
-                variant: "friend",
-                initials: "AI",
-                displayName: "AI Travel Agent",
-                text: "Sorry. There was an error calling AI agent.",
-                timestamp: new Date(errorMessage.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              };
-              
-              setMessages((prev) =>
-                prev.some((existing) => existing.id === formattedError.id)
-                  ? prev
-                  : [...prev, formattedError],
-              );
-            }
+            // Don't add to local state - let realtime subscription handle it
           } catch (dbErr) {
             console.error("Failed to save error message to DB", dbErr);
           }
         } finally {
           setAiLoading(false);
         }
-      }
+      } 
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
       setSending(false);
     }
   };
+
+  const handleExpenseRecorded = async (info: ExpenseRecordedInfo) => {
+    if (!groupId || !userId) return;
+    try {
+      const label = info.description && info.description.trim().length > 0 ? info.description.trim() : "Expense";
+      const messageText = `Expense recorded: ${label} — $${info.amount.toFixed(2)} (paid by ${info.payerLabel}).`;
+      const inserted = await sendGroupMessage({
+        groupId,
+        content: messageText,
+        senderId: userId,
+      });
+
+      if (inserted) {
+        setMessages((prev) =>
+          prev.some((existing) => existing.id === inserted.id)
+            ? prev
+            : [...prev, decorateMessage(inserted, userId, userName)],
+        );
+      }
+    } catch (err) {
+      console.error("Failed to log expense message", err);
+    }
+  };
+
+  const needsPreferenceOnboarding =
+    !!preferenceStatus &&
+    (!preferenceStatus.has_interests ||
+      !preferenceStatus.has_budget ||
+      !preferenceStatus.has_departure_city);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50 px-4 py-10">
@@ -418,6 +437,44 @@ const fetchAndStoreSenderName = useCallback(
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
           <div className="relative flex h-full items-end justify-between px-6 pb-6 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
+      {showExpenseModal && userId && (
+        <ExpenseModal
+          groupId={groupId}
+          currentUserId={userId}
+          currentUserName={userName}
+          onClose={() => setShowExpenseModal(false)}
+          onExpenseRecorded={handleExpenseRecorded}
+        />
+      )}
+      <header className="border-b border-white/60 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-400">
+              TripSmith • Group
+            </p>
+            <h1 className="text-3xl font-bold text-gray-900">Group chat</h1>
+            <p className="text-sm text-gray-500">
+              Invite code ·{" "}
+              <span className="font-semibold tracking-wide text-blue-500">
+                {groupId || "loading"}
+              </span>
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto flex max-w-5xl flex-col gap-5 px-4 py-8">
+        {userId && preferenceStatus && needsPreferenceOnboarding && (
+          <PreferenceOnboarding
+            groupId={groupId}
+            userId={userId}
+            status={preferenceStatus}
+            onUpdated={loadPreferenceStatus}
+          />
+        )}
+        <div className="rounded-3xl bg-white/80 shadow-xl shadow-blue-100/60 ring-1 ring-blue-50">
+          <div className="flex items-center justify-between border-b border-blue-50 px-6 py-4">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-white/70">TripSmith</p>
               <h1 className="text-4xl font-bold">{groupInfo?.name || "Cow"}</h1>
@@ -431,6 +488,15 @@ const fetchAndStoreSenderName = useCallback(
             {/* <div className="rounded-full bg-white/30 px-4 py-1 text-xs font-semibold backdrop-blur">
               ✈️ {groupInfo?.name + " Gateway"}
             </div> */}
+            <div className="flex items-center gap-3">
+              {userId && <BalancesWidget groupId={groupId} currentUserId={userId} />}
+              <button
+                onClick={() => setShowExpenseModal(true)}
+                className="rounded-full border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50"
+              >
+                + Add expense
+              </button>
+            </div>
           </div>
         </div>
 

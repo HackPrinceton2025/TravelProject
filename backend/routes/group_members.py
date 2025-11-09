@@ -16,5 +16,29 @@ def join_group(invite_code: str, user_id: str):
 
 @router.get("/{group_id}")
 def list_members(group_id: str):
-    res = supabase.table("group_members").select("*").eq("group_id", group_id).execute()
-    return res.data
+    try:
+        # Join with users table to get user names
+        res = supabase.table("group_members") \
+            .select("*, users(id, name, email)") \
+            .eq("group_id", group_id) \
+            .execute()
+        
+        # Flatten the nested users object into user_name and user_email fields
+        data = res.data or []
+        for member in data:
+            users_data = member.get("users")
+            if users_data and isinstance(users_data, dict):
+                # User exists in users table
+                member["user_name"] = users_data.get("name") or users_data.get("email") or "Unknown"
+                member["user_email"] = users_data.get("email")
+            else:
+                # Fallback if user not found in users table
+                member["user_name"] = "Unknown User"
+                member["user_email"] = None
+            # Remove nested users object to avoid confusion
+            if "users" in member:
+                del member["users"]
+        
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch group members: {str(e)}")

@@ -7,6 +7,7 @@ import requests
 from typing import Dict, Any, List, Optional
 import uuid
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class BookingAPIClient:
@@ -156,6 +157,50 @@ class BookingAPIClient:
             
         except requests.exceptions.RequestException as e:
             raise Exception(f"Booking.com hotels search failed: {str(e)}")
+    
+    def get_hotel_details(
+        self,
+        hotel_id: str,
+        arrival_date: str,
+        departure_date: str,
+        adults: int = 1,
+        room_qty: int = 1,
+        currency: str = "USD"
+    ) -> Dict[str, Any]:
+        """
+        Get detailed hotel information including URL
+        
+        Args:
+            hotel_id: Hotel ID from search results
+            arrival_date: Check-in date (YYYY-MM-DD)
+            departure_date: Check-out date (YYYY-MM-DD)
+            adults: Number of adults
+            room_qty: Number of rooms
+            currency: Currency code
+            
+        Returns:
+            Detailed hotel data including URL
+        """
+        url = f"{self.base_url}/hotels/getHotelDetails"
+        params = {
+            "hotel_id": hotel_id,
+            "arrival_date": arrival_date,
+            "departure_date": departure_date,
+            "adults": str(adults),
+            "room_qty": str(room_qty),
+            "units": "metric",
+            "temperature_unit": "c",
+            "languagecode": "en-us",
+            "currency_code": currency
+        }
+        
+        try:
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            # Return empty dict on error to avoid breaking the flow
+            return {}
 
 
 # Singleton instance
@@ -209,10 +254,10 @@ def search_flights_booking(
             return {
                 "type": "error_result",
                 "cards": [{
-                    "type": "confirmation",
+                    "type": "generic",
                     "id": f"error_{uuid.uuid4().hex[:8]}",
                     "data": {
-                        "success": False,
+                        "title": "Flight search failed",
                         "message": f"Could not find origin airport: {origin}",
                         "error_type": "invalid_location"
                     }
@@ -229,10 +274,10 @@ def search_flights_booking(
             return {
                 "type": "error_result",
                 "cards": [{
-                    "type": "confirmation",
+                    "type": "generic",
                     "id": f"error_{uuid.uuid4().hex[:8]}",
                     "data": {
-                        "success": False,
+                        "title": "Flight search failed",
                         "message": f"Could not find destination airport: {destination}",
                         "error_type": "invalid_location"
                     }
@@ -286,13 +331,14 @@ def search_flights_booking(
         
         # Convert to flight cards
         flight_cards = []
-        for offer in flight_offers[:15]:  # Limit to 15
+        for offer in flight_offers[:5]:  # Limit to 7
             # Get price from priceBreakdown
             price_breakdown = offer.get("priceBreakdown", {})
             total = price_breakdown.get("total", {})
             price_units = total.get("units", 0)
             price_nanos = total.get("nanos", 0)
             total_price = price_units + (price_nanos / 1_000_000_000)
+            price_per_person = round(total_price / passengers, 2) if passengers else round(total_price, 2)
             
             # Filter by price
             if max_price and total_price > max_price:
@@ -342,7 +388,7 @@ def search_flights_booking(
             
             # Calculate total duration (sum of all segment times)
             total_time_seconds = sum(seg.get("totalTime", 0) for seg in segments)
-            duration_hours = round(total_time_seconds / 3600, 1) if total_time_seconds else 0
+            duration_hours = round(total_time_seconds / 3600, 2) if total_time_seconds else 0
             
             # Count stops (number of legs - 1 for each segment)
             total_stops = 0
@@ -366,13 +412,16 @@ def search_flights_booking(
                     "destination": dest_code,
                     "departure_time": departure_time,
                     "arrival_time": arrival_time,
-                    "duration": duration_hours,
+                    "duration_hours": duration_hours,
+                    "price_per_person": price_per_person,
+                    "total_price": round(total_price, 2),
                     "price": round(total_price, 2),
                     "currency": total.get("currencyCode", "USD"),
                     "stops": total_stops,
                     "cabin_class": cabin_class_actual,
                     "departure_date": departure_date,
                     "return_date": return_date,
+                    "booking_link": "",
                     "booking_token": offer.get("token", "")
                 }
             })
@@ -392,14 +441,14 @@ def search_flights_booking(
         }
     
     except Exception as e:
-        # Return error as confirmation card
+        # Return error as generic card
         return {
             "type": "error_result",
             "cards": [{
-                "type": "confirmation",
+                "type": "generic",
                 "id": f"error_{uuid.uuid4().hex[:8]}",
                 "data": {
-                    "success": False,
+                    "title": "Flight search failed",
                     "message": f"Failed to search flights: {str(e)}",
                     "error_type": "api_error"
                 }
@@ -463,13 +512,60 @@ def search_hotels_booking(
         except:
             nights = 1
         
-        # Convert to hotel cards
-        hotel_cards = []
-        for hotel_obj in hotels[:15]:  # Limit to 15
-            # Get property data (actual hotel info is inside 'property' key)
+        # Helper function to fetch hotel URL
+        def fetch_hotel_url(hotel_id: str) -> tuple[str, Optional[str]]:
+            """Fetch URL for a single hotel. Returns (hotel_id, url)"""
+            try:
+                details = client.get_hotel_details(
+                    hotel_id=str(hotel_id),
+                    arrival_date=check_in,
+                    departure_date=check_out,
+                    adults=guests,
+                    room_qty=rooms
+                )
+                hotel_data = details.get("data", {})
+                url = hotel_data.get("url") or hotel_data.get("hotel_url")
+                return (hotel_id, url)
+            except Exception:
+                return (hotel_id, None)
+        
+        # Collect hotel IDs for parallel fetching
+        hotel_ids_to_fetch = []
+        hotel_objects = []
+        
+        for hotel_obj in hotels[:5]:  # Limit to 7
             hotel = hotel_obj.get("property", {})
             if not hotel:
                 continue
+            
+            hotel_id = hotel_obj.get("hotel_id", hotel.get("id"))
+            if hotel_id:
+                hotel_ids_to_fetch.append(str(hotel_id))
+                hotel_objects.append((hotel_id, hotel_obj))
+        
+        # Fetch URLs in parallel using ThreadPoolExecutor
+        hotel_url_map = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_hotel_id = {
+                executor.submit(fetch_hotel_url, hotel_id): hotel_id 
+                for hotel_id in hotel_ids_to_fetch
+            }
+            
+            for future in as_completed(future_to_hotel_id):
+                try:
+                    hotel_id, url = future.result()
+                    hotel_url_map[hotel_id] = url
+                except Exception:
+                    # If individual fetch fails, continue
+                    pass
+        
+        # Convert to hotel cards
+        hotel_cards = []
+        for hotel_id, hotel_obj in hotel_objects:
+            hotel = hotel_obj.get("property", {})
+            
+            # Get URL from parallel fetch results
+            hotel_url = hotel_url_map.get(str(hotel_id))
             
             # Get price
             price_breakdown = hotel.get("priceBreakdown", {})
@@ -518,10 +614,11 @@ def search_hotels_booking(
                     "review_count": hotel.get("reviewCount", 0),
                     "location": f"{latitude}, {longitude}" if latitude and longitude else "",
                     "image": image_url,
+                    "website": hotel_url,  # Booking.com URL for this hotel
                     "check_in": check_in,
                     "check_out": check_out,
                     "nights": nights,
-                    "hotel_id": hotel_obj.get("hotel_id", hotel.get("id")),
+                    "hotel_id": hotel_id,
                     "stars": accurate_class,
                     "country_code": hotel.get("countryCode", ""),
                     "is_preferred": hotel.get("isPreferred", False)

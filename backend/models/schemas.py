@@ -146,7 +146,13 @@ class AgentCard(BaseModel):
         "itinerary",
         "budget",
         "map",
-        "generic"
+        "confirmation",
+        "generic",
+        "preferences_result",
+        "group_preferences_result",
+        "update_result",
+        "user_preferences",
+        "location"
     ]
     title: Optional[str] = None
     data: Dict[str, Any]

@@ -75,6 +75,25 @@ export async function sendAIMessage({
   content: string; // Plain text message
   body: { [key: string]: any } | null; // Cards data
 }) {
+  const payload = {
+    group_id: groupId,
+    sender_id: senderId,
+    kind: "ai-response",
+    content: content, // Text in content field
+    body: body, // Cards in body field
+  };
+
+  console.log("🚀 sendAIMessage payload:");
+  console.log("  📄 content length:", content.length, "characters");
+  console.log("  🎴 body (cards):", body);
+  console.log("  🎴 body type:", Array.isArray(body) ? "array" : typeof body);
+  if (body) {
+    const bodyString = JSON.stringify(body);
+    console.log("  🎴 body JSON length:", bodyString.length, "characters");
+    console.log("  🎴 cards count:", Array.isArray(body) ? body.length : "N/A");
+  }
+  console.log("  📦 total payload size:", JSON.stringify(payload).length, "characters");
+
   const res = await fetch(`${API_BASE}/api/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -89,12 +108,17 @@ export async function sendAIMessage({
         sender_name: "TripSmith AI",
       },
     }),
+    body: JSON.stringify(payload),
   });
+  
   if (!res.ok) {
     const text = await res.text();
+    console.error("❌ sendAIMessage failed:", text);
     throw new Error(text || "Failed to send AI message");
   }
-  return (await res.json()) as ChatMessage;
+  const response = await res.json();
+  console.log("✅ sendAIMessage successful");
+  return response as ChatMessage;
 }
 
 export async function callAIAgent({

@@ -6,7 +6,11 @@ router = APIRouter()
 
 @router.get("/")
 def get_messages(group_id: str):
-    response = supabase.table("messages").select("*").eq("group_id", group_id).order("created_at").execute()
+    response = supabase.table("messages") \
+        .select("*") \
+        .eq("group_id", group_id) \
+        .order("created_at") \
+        .execute()
     return response.data
 
 @router.post("/")

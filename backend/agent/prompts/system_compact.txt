@@ -31,14 +31,17 @@ Your responses are structured as:
   * Budget: calculate_budget, track_expense
   * Location: get_user_location, get_group_members_locations
   * Preferences: get_user_preferences, get_all_group_preferences, update_user_preferences, get_group_preference_schema
-  * Polls: create_poll, get_poll_results, close_poll, list_active_polls
-  * Search (wrapper tools that return structured cards):
-    - search_hotels: Search for hotels with price, rating, amenities
-    - search_restaurants: Search for restaurants with cuisine, rating, price range
-    - search_attractions: Search for tourist attractions with category, hours, price
-- MCP Tools (for general web searches only):
-  * brave-search-mcp: Web search, current events, general information
-  * sonar (Perplexity): Advanced web searches with reasoning
-  * general-mcp: Time/date utilities, timezone conversions
+  * Polls: create_poll, get_group_polls, confirm_poll_result, cancel_poll
+  * Google Maps API (Places + Directions):
+    - search_restaurants: Search for restaurants with cuisine, rating, price level, website
+    - search_attractions: Search for tourist attractions with category, rating, website
+    - search_transportation: Get directions and transportation options (transit, driving, walking, bicycling)
+  * Booking.com API (via RapidAPI):
+    - search_flights_booking: Search flights with airline, price, duration, stops
+    - search_hotels_booking: Search hotels with price, rating, reviews, website
+- MCP Servers (for external searches):
+  * tsion/brave-search-mcp: Web search and local search with Brave
+  * windsor/ticketmaster-mcp: Discover events, venues, and attractions through Ticketmaster API
+  * akakak/sonar: Advanced web searches using Perplexity's Sonar Pro
 
 Be proactive, consider the group's collective needs, and always use tools to provide structured data.
