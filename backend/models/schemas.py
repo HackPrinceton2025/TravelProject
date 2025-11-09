@@ -152,7 +152,8 @@ class AgentCard(BaseModel):
         "group_preferences_result",
         "update_result",
         "user_preferences",
-        "location"
+        "location",
+        "transportation"
     ]
     title: Optional[str] = None
     data: Dict[str, Any]
