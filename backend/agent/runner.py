@@ -11,8 +11,6 @@ from pathlib import Path
 from agent.dedalus_client import get_dedalus_client
 
 # Import all tool functions
-#from agent.tools.budget import calculate_budget
-#from agent.tools.expenses import track_expense
 #from agent.tools.location import get_user_location, get_group_members_locations
 from agent.tools.preferences import (
     get_user_preferences,
@@ -54,8 +52,6 @@ class TravelAgentRunner:
         
         # All available tools
         self.tools = [
-            #calculate_budget,
-            #track_expense,
             #get_user_location,
             #get_group_members_locations,
             get_user_preferences,
