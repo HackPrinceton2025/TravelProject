@@ -13,14 +13,12 @@ Build a real-time collaborative travel planning application where an AI agent as
 - **Context-Aware Intelligence**: Recommendations based on user preferences, recent chat, and conversation history
 - **Multi-API Integration**: Google Maps, Booking.com, Foursquare, Ticketmaster
 - **Tool-Based Search**: Executes real searches for flights, hotels, restaurants, and activities
-- **Powered by**: Claude/Grok via Dedalus SDK
+- **Powered by**: Gpt via Dedalus SDK
 
 ### 👥 Group Collaboration
 - **Real-time Chat**: Live group conversations with Supabase synchronization
-- **Preference Onboarding**: Individual travel profiles (budget, dates, interests, dietary restrictions)
-- **Voting System**: Upvote/downvote AI suggestions to reach consensus
+- **Preference Onboarding**: Individual travel profiles (budget, dates, interests, dietary restrictions)s
 - **Expense Tracking**: Shared cost management and budget recommendations
-- **Poll Creation**: Group decision-making tools
 
 ### 🔧 Smart Travel Tools
 - **Flight Search**: Real-time availability and pricing via Kiwi.com API
@@ -28,15 +26,13 @@ Build a real-time collaborative travel planning application where an AI agent as
 - **Restaurant Recommendations**: Dietary-aware suggestions
 - **Activity Planning**: Event discovery via Ticketmaster
 - **Budget Management**: Expense tracking and recommendations
-- **Map Visualization**: Interactive location displays *(in progress)*
-- **Receipt Splitting**: OCR-based expense splitting *(planned)*
 
 ### ⚡ Performance
 - **Parallel API Processing**: 7-8x speedup with ThreadPoolExecutor
 - **Type-Safe APIs**: Pydantic schemas for validation
 - **Real-time Updates**: Live synchronization across all group members
 
-## 🏗️ Architecture
+## 🏗️ Project Structure
 
 ```
 TravelProject/
@@ -200,9 +196,7 @@ The agent has access to 10+ specialized tools:
 
 ## 🧠 AI Context System
 
-The AI agent maintains **three layers of context**:
-
-### 1. User Preferences (Long-term Memory)
+### User Preferences (Long-term Memory)
 Stored in Supabase database:
 - Budget constraints and spending limits
 - Available travel dates (start/end)
@@ -211,56 +205,10 @@ Stored in Supabase database:
 - Preferred travel pace (fast-paced, moderate, relaxed)
 - Departure city and destination preferences
 
-### 2. Recent Chat Context (Short-term Memory)
-Last 20 messages in the conversation:
-- Active discussion topics
-- Recent questions and answers
-- Immediate decision-making context
-- Current user needs
-
-### 3. Historical Summary (Summarized Memory)
-AI-generated summaries of older conversations:
-- Key decisions made over time
-- Important preferences shared
-- Major discussion points
-- Consensus reached on past topics
-
-This multi-tiered approach allows the AI to provide increasingly personalized recommendations while maintaining conversation continuity.
-
-## 🎨 Key Features in Detail
-
-### Parallel API Processing
-
-Optimized performance with concurrent API calls:
-
-```python
-# Before: Sequential execution
-for query in queries:
-    result = search_place(query)  # 2-3 seconds each
-# Total: 15 seconds for 7 searches
-
-# After: Parallel execution
-with ThreadPoolExecutor(max_workers=10) as executor:
-    futures = [executor.submit(search_place, q) for q in queries]
-    results = [f.result() for f in futures]
-# Total: 2 seconds for 7 searches (7.5x faster!)
-```
-
-### Domain-Specific Prompts
-
-The AI uses specialized prompts for different tasks:
-
-- **Flight Search** (`domain_flights.txt`): Focus on dates, budget, route optimization
-- **Hotel Discovery** (`domain_hotels.txt`): Emphasize location, amenities, price range
-- **Restaurant Search** (`domain_restaurants.txt`): Consider dietary restrictions, cuisine preferences
-- **Budget Management** (`domain_budget.txt`): Provide cost breakdowns and savings tips
-- **Preference Analysis** (`domain_preferences.txt`): Find group consensus and handle conflicts
-
 ### Real-time Collaboration
 
 Supabase integration enables:
 - **Live message synchronization**: See messages instantly across all devices
-- **Real-time poll updates**: Watch votes come in as they happen
 - **Instant preference changes**: Updates reflect immediately for the AI
 - **Collaborative expense tracking**: Shared visibility of all group spending
 
